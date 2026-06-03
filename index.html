@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>고속도로 수학왕</title>
+    <!-- 필수 라이브러리 (안정 버전 및 호환성 확보) -->
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 실시간 교실 데이터 교환을 위한 Firebase 라이브러리 (로컬 file:// 환경 완벽 호환 UMD 버전) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body { 
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0; padding: 0;
+            background-color: #f0f9ff; /* 하늘색 배경 (sky-50) */
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-title { font-family: 'Black Han Sans', sans-serif; }
+
+        /* 도로 움직임 애니메이션 (하늘색 배경에 어울리는 구름 톤 연동) */
+        .road-line {
+            background: linear-gradient(90deg, transparent 0%, transparent 50%, rgba(56, 189, 248, 0.2) 50%, rgba(56, 189, 248, 0.2) 100%);
+            background-size: 80px 100%;
+            animation: roadMove 0.8s linear infinite;
+        }
+        @keyframes roadMove { from { background-position: 0 0; } to { background-position: -80px 0; } }
+
+        /* 3D 물리 버튼 디자인 */
+        .btn-3d {
+            transition: all 0.1s;
+            box-shadow: 0 6px 0 #bae6fd;
+            position: relative;
+        }
+        .btn-3d:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #bae6fd;
+        }
+        
+        .scale-in { animation: scaleIn 0.3s ease-out forwards; }
+        @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .car-shadow { filter: drop-shadow(0 20px 15px rgba(14, 165, 233, 0.15)); }
+
+        /* Chrome, Safari, Edge, Opera에서 화살표 스핀 버튼 제거 */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Firefox에서 화살표 스핀 버튼 제거 */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* 깜빡이 효과 */
+        .blink {
+            animation: blinkEffect 1s infinite;
+        }
+        @keyframes blinkEffect {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        let db = null;
+        let isFirebaseOnline = false;
+
+        // 직접 발급받은 Firebase 정보를 입력합니다.
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXgE91Z8Ju1ozPy9gqkxMSVPQZVYoOhpk",
+            authDomain: "trafficjam-9e4a6.firebaseapp.com",
+            projectId: "trafficjam-9e4a6",
+            storageBucket: "trafficjam-9e4a6.firebasestorage.app",
+            messagingSenderId: "1029558621780",
+            appId: "1:1029558621780:web:c18ab427cee359fa7dbfc1",
+            measurementId: "G-TJT28Q36QK"
+        };
+
+        // 안전 장치: 설정정보가 가짜인지 실제인지 체크하여 로컬 구동시 크래시 원천 방지
+        const isConfigValid = firebaseConfig && 
+                             firebaseConfig.apiKey && 
+                             !firebaseConfig.apiKey.includes("발급받은_") &&
+                             firebaseConfig.projectId && 
+                             !firebaseConfig.projectId.includes("발급받은_");
+
+        if (isConfigValid) {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                isFirebaseOnline = true;
+                
+                // 백그라운드 익명 로그인 가동으로 Firebase 보안 규칙 및 연결성 유지
+                firebase.auth().signInAnonymously()
+                    .then(() => console.log("Firebase 교실 데이터베이스 접속 및 익명 로그인 성공!"))
+                    .catch((err) => console.warn("익명 로그인 권한 보류 (데이터베이스 연결은 유지됩니다):", err));
+            } catch (e) {
+                console.error("Firebase 초기화 중 중대 오류가 발생하여 안전하게 오프라인 시뮬레이터로 기동합니다:", e);
+                isFirebaseOnline = false;
+            }
+        } else {
+            console.log("Firebase 연동 정보가 감지되지 않아 안전하게 [오프라인 가상 교실 모드]로 기동합니다.");
+        }
+
+        const Icons = {
+            Sparkles: () => (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275z"/></svg>
+            )
+        };
+
+        const LicensePlate = ({ mode, digits, isUsedIdx = [], blankIdx = -1 }) => {
+            if (mode === "beginner" || mode === "pro") {
+                return (
+                    <div className="relative w-full max-w-xs md:max-w-sm aspect-[2/1] mb-4 flex items-center justify-center scale-105 car-shadow scale-in mx-auto">
+                        <svg viewBox="0 0 400 200" className="w-full h-full text-sky-500">
+                            <path d="M50 150 L50 100 Q50 60 100 50 L300 50 Q350 60 350 100 L350 150 Z" fill="currentColor" />
+                            <path d="M40 150 H360 V170 Q360 180 350 180 H50 Q40 180 40 170 Z" fill="#0284c7" />
+                            <path d="M80 65 H320 V110 H80 Z" fill="#0c4a6e" rx="5" />
+                            <rect x="55" y="120" width="40" height="20" rx="5" fill="#ef4444" />
+                            <rect x="305" y="120" width="40" height="20" rx="5" fill="#ef4444" />
+                            <rect x="110" y="125" width="180" height="50" rx="6" fill="white" stroke="#bae6fd" strokeWidth="2" />
+                        </svg>
+                        <div className="absolute top-[71%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-4 font-bold select-none tracking-normal">
+                            {digits.map((d, i) => {
+                                const isUsed = isUsedIdx.includes(i);
+                                return (
+                                    <span key={i} className={`text-2xl md:text-3xl font-black transition-all ${isUsed ? 'text-sky-100' : 'text-slate-900'}`}>
+                                        {d}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="relative w-full max-w-xs md:max-w-sm aspect-[2/1] mb-4 flex items-center justify-center scale-105 car-shadow scale-in mx-auto">
+                    <svg viewBox="0 0 400 200" className="w-full h-full text-sky-500">
+                        <path d="M50 150 L50 100 Q50 60 100 50 L300 50 Q350 60 350 100 L350 150 Z" fill="currentColor" />
+                        <path d="M40 150 H360 V170 Q360 180 350 180 H50 Q40 180 40 170 Z" fill="#0284c7" />
+                        <path d="M80 65 H320 V110 H80 Z" fill="#0c4a6e" rx="5" />
+                        <rect x="55" y="120" width="40" height="20" rx="5" fill="#ef4444" />
+                        <rect x="305" y="120" width="40" height="20" rx="5" fill="#ef4444" />
+                        <rect x="110" y="125" width="180" height="50" rx="6" fill="white" stroke="#bae6fd" strokeWidth="2" />
+                    </svg>
+                    <div className="absolute top-[71%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-3 font-bold select-none tracking-tighter">
+                        <div className="flex gap-0.5">
+                            {digits.slice(0, 2).map((d, i) => {
+                                const isUsed = isUsedIdx.includes(i);
+                                const isBlank = mode === "mid" && blankIdx === i;
+                                return (
+                                    <span key={i} className={`text-lg md:text-xl font-black transition-all ${isUsed ? 'text-sky-100' : isBlank ? 'text-indigo-600 bg-indigo-50 px-1 rounded animate-pulse' : 'text-sky-700'}`}>
+                                        {isBlank ? '?' : d}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                        <span className="text-sky-600 text-lg md:text-xl">가</span>
+                        <div className="flex gap-1">
+                            {digits.slice(2).map((d, i) => {
+                                const realIdx = i + 2;
+                                const isUsed = isUsedIdx.includes(realIdx);
+                                const isBlank = mode === "mid" && blankIdx === realIdx;
+                                return (
+                                    <span key={realIdx} className={`text-2xl md:text-3xl font-black transition-all ${isUsed ? 'text-sky-100' : isBlank ? 'text-indigo-600 bg-indigo-50 px-1 rounded animate-pulse' : 'text-slate-900'}`}>
+                                        {isBlank ? '?' : d}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState("main"); // main, teacherSetup, teacherDashboard, studentJoin, driving, solving, tutorial
+            const [nickname, setNickname] = useState("");
+            const [nicknameError, setNicknameError] = useState("");
+            const [score, setScore] = useState(0);
+            const [timer, setTimer] = useState(0);
+            const [gameMode, setGameMode] = useState("beginner"); // beginner, mid, pro
+            const [problem, setProblem] = useState(null);
+            const [expression, setExpression] = useState([]); 
+            const [answerInput, setAnswerInput] = useState("");
+            const [isProblemSolved, setIsProblemSolved] = useState(false);
+            const [feedback, setFeedback] = useState({ text: "", type: "" });
+            const [tutoStep, setTutoStep] = useState(0);
+
+            // 실시간 교실용 동기화 상태
+            const [roomPin, setRoomPin] = useState("");
+            const [pinInput, setPinInput] = useState("");
+            const [studentList, setStudentList] = useState([]); // 교사용 학생 리스트
+            const [teacherModeSelected, setTeacherModeSelected] = useState("beginner"); // 교사가 개설할 방 난이도
+
+            // 주행 물리 가속 제어
+            const [speed, setSpeed] = useState(0);
+            const [keysPressed, setKeysPressed] = useState({ up: false, left: false, right: false });
+
+            // 문제별 타이머 및 힌트 팝업 상태
+            const [problemTimer, setProblemTimer] = useState(0);
+            const [showHintModal, setShowHintModal] = useState(false);
+
+            // Canvas 레퍼런스
+            const canvasRef = useRef(null);
+            const animationFrameRef = useRef(null);
+
+            // 드라이빙 엔티티 상태 (좌우 스티어링 및 터치 제어)
+            const drivingState = useRef({
+                roadOffset: 0,
+                playerX: 200,
+                playerY: 340,
+                targetCarY: -150,
+                targetCarPlate: [8, 7, 5, 9, 3, 2],
+                targetCarSpawned: false,
+                isCollisionTriggered: false,
+                boosterActive: false,
+                boosterTimer: 0,
+                isSteeringLeft: false,
+                isSteeringRight: false,
+                isAccelerating: false,
+                speed: 0
+            });
+
+            // 종합 4단계 학습 가이드 슬라이드 데이터
+            const tutorials = [
+                { title: "규칙 1. 순서대로 계산하기", desc: "더하기(+)와 빼기(-)만 있을 때는 무조건 앞에서부터 순서대로 계산해요.", ex: "15 - 5 + 3 = 10 + 3 = 13" },
+                { title: "규칙 2. 곱하기를 먼저!", desc: "더하기(+), 빼기(-)보다 곱하기(×)를 무조건 먼저 해야 해요.", ex: "4 + 2 × 5 = 4 + 10 = 14" },
+                { title: "규칙 3. 나누기도 힘이 세요!", desc: "곱하기(×)와 마찬가지로 나누기(÷)도 더하기, 빼기보다 먼저 계산해요.", ex: "12 - 6 ÷ 2 = 12 - 3 = 9" },
+                { title: "규칙 4. 무적의 해결사 괄호 ( )", desc: "괄호 ( )가 보이면 모든 규칙을 무시하고 괄호 안을 1등으로 계산해요!", ex: "(4 + 2) × 5 = 6 × 5 = 30" }
+            ];
+
+            // 타이머 통합 제어
+            useEffect(() => {
+                let interval;
+                if (view === "driving" || view === "solving") {
+                    interval = setInterval(() => {
+                        setTimer(t => t + 1);
+                        if (view === "solving") {
+                            setProblemTimer(pt => pt + 1);
+                        }
+                    }, 1000);
+                }
+                return () => clearInterval(interval);
+            }, [view]);
+
+            const evaluateNoParen = (str) => {
+                const tokens = [];
+                let i = 0;
+                while (i < str.length) {
+                    const c = str[i];
+                    if (/[0-9]/.test(c)) {
+                        let numStr = "";
+                        while (i < str.length && /[0-9]/.test(str[i])) { numStr += str[i]; i++; }
+                        tokens.push(parseInt(numStr));
+                    } else if (c === '-' && (tokens.length === 0 || ['+', '-', '*', '/'].includes(tokens[tokens.length - 1]))) {
+                        throw new Error("음수 사용 불가");
+                    } else if (['+', '-', '*', '/'].includes(c)) {
+                        tokens.push(c); i++;
+                    } else { i++; }
+                }
+
+                let j = 0;
+                const tempTokens = [];
+                while (j < tokens.length) {
+                    const token = tokens[j];
+                    if (token === '*' || token === '/') {
+                        const left = tempTokens.pop();
+                        const right = tokens[j + 1];
+                        if (left === undefined || right === undefined) throw new Error("문법 오류");
+                        if (left < 0 || right < 0) throw new Error("음수 연산 불가");
+                        if (token === '*') {
+                            if (left === 0 || right === 0) throw new Error("0 곱하기 제한");
+                            tempTokens.push(left * right);
+                        } else {
+                            if (right === 0 || left % right !== 0) throw new Error("나눗셈 제한");
+                            tempTokens.push(left / right);
+                        }
+                        j += 2;
+                    } else { tempTokens.push(token); j++; }
+                }
+
+                if (tempTokens.length === 0) return 0;
+                let result = tempTokens[0];
+                if (result < 0) throw new Error("음수 발생");
+                let k = 1;
+                while (k < tempTokens.length) {
+                    const op = tempTokens[k];
+                    const nextVal = tempTokens[k + 1];
+                    if (nextVal === undefined) throw new Error("문법 오류");
+                    if (nextVal < 0) throw new Error("음수 연산 불가");
+                    if (op === '+') {
+                        result += nextVal;
+                    } else if (op === '-') {
+                        result -= nextVal;
+                        if (result < 0) throw new Error("중간 계산 결과 음수 발생"); 
+                    }
+                    k += 2;
+                }
+                return result;
+            };
+
+            const evaluateSafe = (str) => {
+                let s = str.replace(/×/g, '*').replace(/÷/g, '/');
+                const parenRegex = /\(([^()]+)\)/g;
+                let match;
+                while ((match = parenRegex.exec(s)) !== null) {
+                    const subExpr = match[1];
+                    const subVal = evaluateNoParen(subExpr);
+                    if (subVal < 0 || !Number.isInteger(subVal)) throw new Error("중간값 안전 범위 초과");
+                    
+                    const matchIndex = match.index;
+                    const charBefore = s[matchIndex - 1];
+                    const charAfter = s[matchIndex + match[0].length];
+                    if (subVal === 0 && (charBefore === '*' || charAfter === '*')) {
+                        throw new Error("편법 식 감지");
+                    }
+                    s = s.substring(0, matchIndex) + subVal + s.substring(matchIndex + match[0].length);
+                    parenRegex.lastIndex = 0;
+                }
+                const finalVal = evaluateNoParen(s);
+                if (finalVal < 0 || !Number.isInteger(finalVal)) throw new Error("최종값 범위 초과");
+                return finalVal;
+            };
+
+            const generateAdvancedHint = (digits) => {
+                const ops = ['+', '-', '*'];
+                const permute = (arr) => {
+                    if (arr.length === 0) return [[]];
+                    return arr.flatMap((v, i) => permute(arr.filter((_, j) => i !== j)).map(p => [v, ...p]));
+                };
+                const digitPerms = permute(digits);
+
+                const templates = [
+                    (p, o) => `${p[0]}${o[0]}${p[1]}${o[1]}${p[2]}${o[2]}${p[3]}`,
+                    (p, o) => `(${p[0]}${o[0]}${p[1]})${o[1]}${p[2]}${o[2]}${p[3]}`,
+                    (p, o) => `${p[0]}${o[0]}(${p[1]}${o[1]}${p[2]})${o[2]}${p[3]}`,
+                    (p, o) => `${p[0]}${o[0]}${p[1]}${o[1]}(${p[2]}${o[2]}${p[3]})`,
+                    (p, o) => `(${p[0]}${o[0]}${p[1]})${o[1]}(${p[2]}${o[2]}${p[3]})`
+                ];
+
+                for (let p of digitPerms) {
+                    for (let o1 of ops) {
+                        for (let o2 of ops) {
+                            for (let o3 of ops) {
+                                const opComb = [o1, o2, o3];
+                                for (let temp of templates) {
+                                    const formula = temp(p, opComb);
+                                    try {
+                                        if (evaluateSafe(formula) === 0) {
+                                            const numRegex = /\d+/g;
+                                            const matches = [];
+                                            let m;
+                                            while ((m = numRegex.exec(formula)) !== null) {
+                                                matches.push({ val: m[0], idx: m.index });
+                                            }
+                                            if (matches.length >= 2) {
+                                                const idx1 = Math.floor(Math.random() * matches.length);
+                                                let idx2 = Math.floor(Math.random() * matches.length);
+                                                while (idx2 === idx1) { idx2 = Math.floor(Math.random() * matches.length); }
+                                                
+                                                const toReplace = [matches[idx1], matches[idx2]].sort((a,b) => b.idx - a.idx);
+                                                let masked = formula;
+                                                toReplace.forEach(item => {
+                                                    masked = masked.substring(0, item.idx) + "□" + masked.substring(item.idx + item.val.length);
+                                                });
+                                                return masked.replace(/\*/g, '×').replace(/\//g, '÷');
+                                            }
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                    }
+                }
+                return "□ + □ - □ + □";
+            };
+
+            const generateValidPlate = (mode) => {
+                let safety = 0;
+                while (safety < 300) {
+                    safety++;
+                    const plate = Array.from({length: 6}, () => Math.floor(Math.random() * 9) + 1);
+                    if (mode === "pro") {
+                        const hint = generateAdvancedHint(plate.slice(2));
+                        if (hint !== "□ + □ - □ + □") {
+                            return plate;
+                        }
+                    } else {
+                        return plate;
+                    }
+                }
+                return [1, 2, 1, 2, 3, 4];
+            };
+
+            const getMidHintData = () => {
+                if (!problem || problem.mode !== "mid") return null;
+                const d = problem.digits;
+                const o = problem.ops;
+                const bIdx = problem.blankIdx;
+                const tType = problem.templateType || "triple_pair";
+
+                if (tType === "triple_pair") {
+                    const hasB1 = bIdx === 0 || bIdx === 1;
+                    const hasB2 = bIdx === 2 || bIdx === 3;
+                    const hasB3 = bIdx === 4 || bIdx === 5;
+
+                    let expr1 = `(${d[0]} ${o[0]} ${d[1]})`;
+                    let expr2 = `(${d[2]} ${o[2]} ${d[3]})`;
+                    let expr3 = `(${d[4]} ${o[4]} ${d[5]})`;
+
+                    let val1 = "계산 불가", val2 = "계산 불가", val3 = "계산 불가";
+
+                    if (!hasB1) {
+                        try { val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}`); } catch (e) { val1 = "계산 불가"; }
+                    }
+                    if (!hasB2) {
+                        try { val2 = evaluateSafe(`${d[2]}${o[2]}${d[3]}`); } catch (e) { val2 = "계산 불가"; }
+                    }
+                    if (!hasB3) {
+                        try { val3 = evaluateSafe(`${d[4]}${o[4]}${d[5]}`); } catch (e) { val3 = "계산 불가"; }
+                    }
+
+                    return { templateType: tType, expr1, expr2, expr3, val1, val2, val3, op1: o[1], op3: o[3], target: problem.target, hasB1, hasB2, hasB3 };
+                }
+
+                if (tType === "double_triple") {
+                    const hasB1 = bIdx === 0 || bIdx === 1 || bIdx === 2;
+                    const hasB2 = bIdx === 3 || bIdx === 4 || bIdx === 5;
+
+                    let expr1 = `(${d[0]} ${o[0]} ${d[1]} ${o[1]} ${d[2]})`;
+                    let expr2 = `(${d[3]} ${o[3]} ${d[4]} ${o[4]} ${d[5]})`;
+
+                    let val1 = "계산 불가", val2 = "계산 불가";
+
+                    if (!hasB1) {
+                        try { val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}${o[1]}${d[2]}`); } catch (e) { val1 = "계산 불가"; }
+                    }
+                    if (!hasB2) {
+                        try { val2 = evaluateSafe(`${d[3]}${o[3]}${d[4]}${o[4]}${d[5]}`); } catch (e) { val2 = "계산 불가"; }
+                    }
+
+                    return { templateType: tType, expr1, expr2, val1, val2, op2: o[2], target: problem.target, hasB1, hasB2 };
+                }
+
+                if (tType === "flat_mixed") {
+                    const hintsList = [];
+                    const pair1_hasB = bIdx === 0 || bIdx === 1;
+                    if (!pair1_hasB && (o[0] === "×" || o[0] === "÷")) {
+                        try {
+                            const val = evaluateSafe(`${d[0]}${o[0]}${d[1]}`);
+                            hintsList.push({ expr: `${d[0]} ${o[0]} ${d[1]}`, val });
+                        } catch(e) {}
+                    }
+                    
+                    const pair2_hasB = bIdx === 2 || bIdx === 3;
+                    if (!pair2_hasB && (o[2] === "×" || o[2] === "÷")) {
+                        try {
+                            const val = evaluateSafe(`${d[2]}${o[2]}${d[3]}`);
+                            hintsList.push({ expr: `${d[2]} ${o[2]} ${d[3]}`, val });
+                        } catch(e) {}
+                    }
+
+                    const pair3_hasB = bIdx === 4 || bIdx === 5;
+                    if (!pair3_hasB && (o[4] === "×" || o[4] === "÷")) {
+                        try {
+                            const val = evaluateSafe(`${d[4]}${o[4]}${d[5]}`);
+                            hintsList.push({ expr: `${d[4]} ${o[4]}${d[5]}`, val });
+                        } catch(e) {}
+                    }
+
+                    return { templateType: tType, hintsList, target: problem.target };
+                }
+
+                return null;
+            };
+
+            const generateProblemForCar = (mode, plateDigits) => {
+                let digits = [...plateDigits];
+                let ops, target, blankIdx = -1;
+
+                if (mode === "pro") {
+                    const proDigits = digits.slice(2);
+                    const hintForm = generateAdvancedHint(proDigits);
+                    setProblem({ mode, digits: proDigits, hint: hintForm });
+                    setExpression([]);
+                } else if (mode === "mid") {
+                    let success = false;
+                    let safetyCounter = 0;
+                    let chosenTemplate = "triple_pair";
+                    const templatesList = ["triple_pair", "double_triple", "flat_mixed"];
+                    
+                    while(!success && safetyCounter < 600) { 
+                        safetyCounter++;
+                        const tType = templatesList[Math.floor(Math.random() * templatesList.length)];
+                        const availableOps = ["+", "-", "×", "÷"];
+                        
+                        ops = [
+                            availableOps[Math.floor(Math.random()*4)], 
+                            availableOps[Math.floor(Math.random()*4)], 
+                            availableOps[Math.floor(Math.random()*4)], 
+                            availableOps[Math.floor(Math.random()*4)], 
+                            availableOps[Math.floor(Math.random()*4)]  
+                        ];
+                        
+                        try {
+                            const d = digits;
+                            const o = ops;
+                            let formula = "";
+
+                            if (tType === "triple_pair") {
+                                const val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}`);
+                                const val2 = evaluateSafe(`${d[2]}${o[2]}${d[3]}`);
+                                const val3 = evaluateSafe(`${d[4]}${o[4]}${d[5]}`);
+                                if (val1 < 0 || val2 < 0 || val3 < 0) throw new Error("음수");
+
+                                formula = `(${d[0]}${o[0]}${d[1]})${o[1]}(${d[2]}${o[2]}${d[3]})${o[3]}(${d[4]}${o[4]}${d[5]})`;
+                            } else if (tType === "double_triple") {
+                                const val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}${o[1]}${d[2]}`);
+                                const val2 = evaluateSafe(`${d[3]}${o[3]}${d[4]}${o[4]}${d[5]}`);
+                                if (val1 < 0 || val2 < 0) throw new Error("음수");
+
+                                formula = `(${d[0]}${o[0]}${d[1]}${o[1]}${d[2]})${o[2]}(${d[3]}${o[3]}${d[4]}${o[4]}${d[5]})`;
+                            } else if (tType === "flat_mixed") {
+                                formula = `${d[0]}${o[0]}${d[1]}${o[1]}${d[2]}${o[2]}${d[3]}${o[3]}${d[4]}${o[4]}${d[5]}`;
+                            }
+
+                            const val = evaluateSafe(formula);
+                            if (val > 0 && val < 150 && Number.isInteger(val)) {
+                                target = val;
+                                chosenTemplate = tType;
+                                success = true;
+                            }
+                        } catch(e) {}
+                    }
+                    if(!success) {
+                        ops = ["+", "+", "+", "+", "+"];
+                        target = digits.reduce((acc, curr) => acc + curr, 0);
+                        chosenTemplate = "flat_mixed";
+                    }
+                    blankIdx = Math.floor(Math.random() * 6);
+                    setProblem({ mode, digits, ops, target, blankIdx, templateType: chosenTemplate });
+                } else {
+                    const beginnerDigits = digits.slice(2);
+                    let success = false;
+                    let safetyCounter = 0;
+                    while(!success && safetyCounter < 300) {
+                        safetyCounter++;
+                        const availableOps = ["+", "-", "×", "÷"];
+                        ops = [availableOps[Math.floor(Math.random()*4)], availableOps[Math.floor(Math.random()*4)], availableOps[Math.floor(Math.random()*4)]];
+                        
+                        try {
+                            const formula = beginnerDigits.map((d, i) => d + (ops[i] ? ops[i] : "")).join("");
+                            const val = evaluateSafe(formula);
+                            if (val > 0 && val < 100) {
+                                target = val;
+                                success = true;
+                            }
+                        } catch(e) {}
+                    }
+                    if(!success) {
+                        ops = ["+", "+", "-"];
+                        target = beginnerDigits[0] + beginnerDigits[1] + beginnerDigits[2] - beginnerDigits[3];
+                        if (target < 0) target = beginnerDigits.reduce((acc, c) => acc + c, 0);
+                    }
+                    setProblem({ mode, digits: beginnerDigits, ops, target, blankIdx: -1 });
+                }
+                setAnswerInput("");
+                setIsProblemSolved(false);
+                setProblemTimer(0);
+                setShowHintModal(false);
+                setFeedback({ text: mode === "pro" ? "숫자 4개를 모두 사용해 0을 만드세요!" : "빈칸에 알맞은 숫자를 적고 엔터 또는 확인을 누르세요!", type: "info" });
+            };
+
+            // 실시간 교사용 방 만들기 개설 로직
+            const handleCreateSession = async () => {
+                const randomPin = Math.floor(100000 + Math.random() * 900000).toString(); // 6자리 랜덤 핀
+                setRoomPin(randomPin);
+
+                if (isFirebaseOnline) {
+                    try {
+                        await db.collection("sessions").doc(randomPin).set({
+                            mode: teacherModeSelected,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            active: true
+                        });
+                        console.log("Firebase Session Created:", randomPin);
+                    } catch (e) {
+                        console.error("Firebase Room Create Error:", e);
+                    }
+                } else {
+                    // 오프라인 가상 모드: 시뮬레이션용 데이터 초기화
+                    console.log("Offline Mock Session Created:", randomPin);
+                    setStudentList([
+                        { nickname: "가상_민수(AI)", score: 0, solved: 0 },
+                        { nickname: "가상_준호(AI)", score: 0, solved: 0 }
+                    ]);
+                }
+                setView("teacherDashboard");
+            };
+
+            // 교사용 실시간 스트리밍 모니터링 수신 (onSnapshot 활성화)
+            useEffect(() => {
+                if (view !== "teacherDashboard" || !roomPin) return;
+
+                if (isFirebaseOnline) {
+                    const unsubscribe = db.collection("sessions").doc(roomPin).collection("students")
+                        .onSnapshot((snapshot) => {
+                            const list = [];
+                            snapshot.forEach((doc) => {
+                                list.push(doc.data());
+                            });
+                            setStudentList(list);
+                        }, (err) => {
+                            console.error("Listener Error:", err);
+                        });
+                    return () => unsubscribe();
+                } else {
+                    // 오프라인 가상 시뮬레이터: 4초마다 가상 학생들이 난이도에 맞춰 득점함
+                    const interval = setInterval(() => {
+                        setStudentList(prev => prev.map(student => {
+                            const solvedAdd = Math.random() > 0.4 ? 1 : 0;
+                            const scoreAdd = solvedAdd * (teacherModeSelected === "pro" ? 50 : 10);
+                            return {
+                                ...student,
+                                score: student.score + scoreAdd,
+                                solved: student.solved + solvedAdd
+                            };
+                        }));
+                    }, 4000);
+                    return () => clearInterval(interval);
+                }
+            }, [view, roomPin]);
+
+            // 학생용 실시간 핀번호 입장 처리
+            const handleStudentJoin = async () => {
+                if (!nickname.trim()) {
+                    setNicknameError("이름을 입력해 주세요!");
+                    return;
+                }
+                if (!pinInput.trim()) {
+                    setNicknameError("방 핀번호를 입력해 주세요!");
+                    return;
+                }
+                setNicknameError("");
+
+                if (isFirebaseOnline) {
+                    try {
+                        const roomDoc = await db.collection("sessions").doc(pinInput).get();
+                        if (!roomDoc.exists) {
+                            setNicknameError("유효하지 않은 핀번호입니다!");
+                            return;
+                        }
+                        const roomData = roomDoc.data();
+                        const selectedMode = roomData.mode;
+                        
+                        setGameMode(selectedMode);
+                        setRoomPin(pinInput);
+
+                        // 학생 전용 데이터 등록
+                        await db.collection("sessions").doc(pinInput).collection("students").doc(nickname).set({
+                            nickname: nickname,
+                            score: 0,
+                            solved: 0,
+                            lastActive: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        // 세션 타이머 초기화 후 게임 진입
+                        setTimer(0);
+                        setScore(0);
+                        startDrivingPhysics(selectedMode);
+                    } catch (e) {
+                        console.error("Join Error:", e);
+                        setNicknameError("네트워크 오류가 발생했습니다.");
+                    }
+                } else {
+                    // 오프라인 가상 테스트 환경 제공
+                    setGameMode("beginner");
+                    setRoomPin(pinInput);
+                    setTimer(0);
+                    setScore(0);
+                    startDrivingPhysics("beginner");
+                }
+            };
+
+            const startDrivingPhysics = (selectedMode) => {
+                setSpeed(0);
+                setKeysPressed({ up: false, left: false, right: false });
+
+                drivingState.current = {
+                    roadOffset: 0,
+                    playerX: 200,
+                    playerY: 340,
+                    targetCarY: -200,
+                    targetCarPlate: generateValidPlate(selectedMode),
+                    targetCarSpawned: true,
+                    isCollisionTriggered: false,
+                    boosterActive: false,
+                    boosterTimer: 0,
+                    isSteeringLeft: false,
+                    isSteeringRight: false,
+                    isAccelerating: false,
+                    speed: 0
+                };
+                setView("driving");
+            };
+
+            // 학생 득점 시 실시간 점수 대시보드 연동 업로드
+            const syncStudentScore = async (newScore, newSolved) => {
+                if (isFirebaseOnline && roomPin && nickname) {
+                    try {
+                        await db.collection("sessions").doc(roomPin).collection("students").doc(nickname).update({
+                            score: newScore,
+                            solved: newSolved,
+                            lastActive: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (e) {
+                        console.error("Score Sync Error:", e);
+                    }
+                }
+            };
+
+            // 실시간 2D Canvas 주행 물리 업데이트 및 렌더링 루프 (solving 모드에서도 작동 유지)
+            useEffect(() => {
+                if (view !== "driving" && view !== "solving") {
+                    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+                    return;
+                }
+
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext("2d");
+
+                const updatePhysicsAndDraw = () => {
+                    const state = drivingState.current;
+
+                    let targetSpeed = 0;
+                    if (view === "solving") {
+                        targetSpeed = 0;
+                    } else if (state.boosterActive) {
+                        targetSpeed = 160; 
+                        state.boosterTimer -= 1;
+                        if (state.boosterTimer <= 0) {
+                            state.boosterActive = false;
+                        }
+                    } else if (state.isAccelerating) {
+                        targetSpeed = 100; 
+                    }
+
+                    let currentSpeed = state.speed;
+                    if (currentSpeed < targetSpeed) {
+                        currentSpeed += 2;
+                    } else if (currentSpeed > targetSpeed) {
+                        currentSpeed -= 3;
+                    }
+                    if (currentSpeed < 0) currentSpeed = 0;
+                    state.speed = currentSpeed;
+
+                    if (view === "driving") {
+                        setSpeed(Math.floor(currentSpeed));
+                    } else {
+                        setSpeed(0);
+                    }
+
+                    const activeSpeed = view === "solving" ? 0 : currentSpeed;
+                    state.roadOffset = (state.roadOffset + (activeSpeed * 0.15)) % 60;
+
+                    if (view === "driving") {
+                        if (state.isSteeringLeft) {
+                            state.playerX = Math.max(80, state.playerX - 4);
+                        }
+                        if (state.isSteeringRight) {
+                            state.playerX = Math.min(320, state.playerX + 4);
+                        }
+                    }
+
+                    if (state.targetCarSpawned && !state.isCollisionTriggered) {
+                        state.targetCarY += (activeSpeed * 0.05);
+
+                        if (state.targetCarY >= state.playerY - 85) {
+                            state.targetCarY = state.playerY - 85;
+                            state.isCollisionTriggered = true;
+                            state.isAccelerating = false;
+                            state.speed = 0;
+                            
+                            state.isSteeringLeft = false;
+                            state.isSteeringRight = false;
+                            setKeysPressed({ up: false, left: false, right: false });
+
+                            generateProblemForCar(gameMode, state.targetCarPlate);
+                            setView("solving");
+                        }
+                    }
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // 1. 도로 배경 그리기 (아스팔트)
+                    ctx.fillStyle = "#1e293b";
+                    ctx.fillRect(50, 0, canvas.width - 100, canvas.height);
+
+                    // 2. 도로 숄더 라인 (가장자리 선)
+                    ctx.fillStyle = "#eab308";
+                    ctx.fillRect(45, 0, 5, canvas.height);
+                    ctx.fillRect(canvas.width - 50, 0, 5, canvas.height);
+
+                    // 3. 차선 그리기
+                    ctx.fillStyle = "#ffffff";
+                    const laneX1 = 150;
+                    const laneX2 = 250;
+                    for (let y = -60 + state.roadOffset; y < canvas.height; y += 60) {
+                        ctx.fillRect(laneX1, y, 4, 30);
+                        ctx.fillRect(laneX2, y, 4, 30);
+                    }
+
+                    // 4. 정지해 있는 앞차 그리기
+                    if (state.targetCarSpawned) {
+                        const tcX = 200 - 30; 
+                        const tcY = state.targetCarY;
+
+                        ctx.fillStyle = "#ef4444"; 
+                        ctx.beginPath();
+                        ctx.roundRect(tcX, tcY, 60, 80, [12, 12, 5, 5]);
+                        ctx.fill();
+
+                        ctx.fillStyle = "#0f172a";
+                        ctx.fillRect(tcX + 6, tcY + 15, 48, 20);
+
+                        ctx.fillStyle = "#dc2626";
+                        ctx.fillRect(tcX + 2, tcY + 70, 10, 6);
+                        ctx.fillRect(tcX + 48, tcY + 70, 10, 6);
+
+                        ctx.fillStyle = "#f8fafc";
+                        ctx.strokeStyle = "#94a3b8";
+                        ctx.lineWidth = 1;
+                        ctx.fillRect(tcX + 15, tcY + 68, 30, 10);
+                        ctx.strokeRect(tcX + 15, tcY + 68, 30, 10);
+
+                        ctx.fillStyle = "#000000";
+                        ctx.font = "bold 6px monospace";
+                        ctx.textAlign = "center";
+                        const plateStr = state.targetCarPlate.slice(0,2).join('') + "가" + state.targetCarPlate.slice(2).join('');
+                        ctx.fillText(plateStr, tcX + 30, tcY + 75);
+                    }
+
+                    // 5. 플레이어 자동차 그리기
+                    const pX = state.playerX - 30;
+                    const pY = state.playerY;
+
+                    if (state.boosterActive && Math.random() > 0.3) {
+                        ctx.fillStyle = "#f97316";
+                        ctx.beginPath();
+                        ctx.moveTo(pX + 15, pY + 80);
+                        ctx.lineTo(pX + 30, pY + 110 + (Math.random() * 15));
+                        ctx.lineTo(pX + 45, pY + 80);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.fillStyle = "#facc15";
+                        ctx.beginPath();
+                        ctx.moveTo(pX + 20, pY + 80);
+                        ctx.lineTo(pX + 30, pY + 95 + (Math.random() * 10));
+                        ctx.lineTo(pX + 40, pY + 80);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+
+                    ctx.fillStyle = "#3b82f6";
+                    ctx.beginPath();
+                    ctx.roundRect(pX, pY, 60, 80, [12, 12, 5, 5]);
+                    ctx.fill();
+
+                    ctx.fillStyle = "#1e293b";
+                    ctx.fillRect(pX + 6, pY + 20, 48, 25);
+
+                    ctx.fillStyle = "#1d4ed8";
+                    ctx.fillRect(pX + 22, pY + 2, 6, 76);
+                    ctx.fillRect(pX + 32, pY + 2, 6, 76);
+
+                    ctx.fillStyle = "#000000";
+                    ctx.fillRect(pX - 4, pY + 12, 4, 16);
+                    ctx.fillRect(pX + 60, pY + 12, 4, 16);
+                    ctx.fillRect(pX - 4, pY + 54, 4, 16);
+                    ctx.fillRect(pX + 60, pY + 54, 4, 16);
+
+                    ctx.fillStyle = "#ef4444";
+                    ctx.fillRect(pX + 4, pY + 74, 8, 4);
+                    ctx.fillRect(pX + 48, pY + 74, 8, 4);
+
+                    animationFrameRef.current = requestAnimationFrame(updatePhysicsAndDraw);
+                };
+
+                animationFrameRef.current = requestAnimationFrame(updatePhysicsAndDraw);
+                return () => cancelAnimationFrame(animationFrameRef.current);
+            }, [view, gameMode]); // React 상태 speed/isAccelerating의 의존성 제거하여 키보드 스레드 먹통 현상 영구 해결
+
+            // 키보드 입력을 리슨하는 주행 컨트롤러 (먹통 문제 완벽 보강)
+            useEffect(() => {
+                if (view !== "driving" && view !== "solving") return;
+
+                const handleKeyDown = (e) => {
+                    if (view === "solving") return; 
+
+                    // QoL 개선: 방향키로 페이지가 아래로 스크롤되거나 움직이는 현상 방지
+                    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+                        e.preventDefault();
+                    }
+
+                    if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+                        drivingState.current.isAccelerating = true;
+                        setKeysPressed(prev => ({ ...prev, up: true }));
+                    }
+                    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+                        drivingState.current.isSteeringLeft = true;
+                        setKeysPressed(prev => ({ ...prev, left: true }));
+                    }
+                    if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+                        drivingState.current.isSteeringRight = true;
+                        setKeysPressed(prev => ({ ...prev, right: true }));
+                    }
+                };
+
+                const handleKeyUp = (e) => {
+                    if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+                        drivingState.current.isAccelerating = false;
+                        setKeysPressed(prev => ({ ...prev, up: false }));
+                    }
+                    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+                        drivingState.current.isSteeringLeft = false;
+                        setKeysPressed(prev => ({ ...prev, left: false }));
+                    }
+                    if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+                        drivingState.current.isSteeringRight = false;
+                        setKeysPressed(prev => ({ ...prev, right: false }));
+                    }
+                };
+
+                window.addEventListener("keydown", handleKeyDown);
+                window.addEventListener("keyup", handleKeyUp);
+                return () => {
+                    window.removeEventListener("keydown", handleKeyDown);
+                    window.removeEventListener("keyup", handleKeyUp);
+                };
+            }, [view]);
+
+            const handleCanvasInteraction = (clientX, rect) => {
+                if (view === "solving") return;
+
+                const relativeX = clientX - rect.left;
+                const width = rect.width;
+                if (relativeX < width / 2) {
+                    drivingState.current.isSteeringLeft = true;
+                    drivingState.current.isSteeringRight = false;
+                    setKeysPressed(prev => ({ ...prev, left: true, right: false }));
+                } else {
+                    drivingState.current.isSteeringRight = true;
+                    drivingState.current.isSteeringLeft = false;
+                    setKeysPressed(prev => ({ ...prev, right: true, left: false }));
+                }
+                drivingState.current.isAccelerating = true;
+                setKeysPressed(prev => ({ ...prev, up: true }));
+            };
+
+            const handleTouchStart = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                const touch = e.touches[0];
+                handleCanvasInteraction(touch.clientX, rect);
+            };
+
+            const handleTouchMove = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                const touch = e.touches[0];
+                handleCanvasInteraction(touch.clientX, rect);
+            };
+
+            const handleTouchEnd = () => {
+                drivingState.current.isSteeringLeft = false;
+                drivingState.current.isSteeringRight = false;
+                drivingState.current.isAccelerating = false;
+                setKeysPressed({ up: false, left: false, right: false });
+            };
+
+            const handleMouseDown = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                handleCanvasInteraction(e.clientX, rect);
+            };
+
+            const handleMouseMove = (e) => {
+                if (e.buttons === 1) {
+                    const rect = canvasRef.current.getBoundingClientRect();
+                    handleCanvasInteraction(e.clientX, rect);
+                }
+            };
+
+            const handleMouseUp = () => {
+                drivingState.current.isSteeringLeft = false;
+                drivingState.current.isSteeringRight = false;
+                drivingState.current.isAccelerating = false;
+                setKeysPressed({ up: false, left: false, right: false });
+            };
+
+            const handleAnswerSubmit = (e) => {
+                if(e) e.preventDefault();
+                if(isProblemSolved) return; 
+
+                const val = parseInt(answerInput);
+                const targetToMatch = problem.mode === "beginner" ? problem.target : problem.digits[problem.blankIdx];
+                
+                if (val === targetToMatch) {
+                    setIsProblemSolved(true); 
+                    setFeedback({ text: "훌륭합니다! 정답입니다! ?? 부스터 가동!", type: "success" });
+                    
+                    const nextScore = score + 10;
+                    const nextSolved = Math.floor(nextScore / 10);
+                    setScore(nextScore);
+
+                    // 실시간 클라우드 DB 대시보드 득점 업로드
+                    syncStudentScore(nextScore, nextSolved);
+
+                    setTimeout(() => {
+                        drivingState.current = {
+                            ...drivingState.current,
+                            playerX: 200, 
+                            targetCarSpawned: false, 
+                            isCollisionTriggered: false,
+                            boosterActive: true,
+                            boosterTimer: 90 
+                        };
+                        setView("driving");
+                        
+                        setTimeout(() => {
+                            drivingState.current.targetCarY = -200;
+                            drivingState.current.targetCarPlate = generateValidPlate(gameMode);
+                            drivingState.current.targetCarSpawned = true;
+                        }, 2000);
+
+                    }, 1200);
+                } else {
+                    setFeedback({ text: "아쉬워요! 수식의 계산 순서를 다시 살펴볼까요?", type: "error" });
+                }
+            };
+
+            const addExpr = (type, value, idx = null) => {
+                if (type === 'digit' && expression.some(e => e.plateIdx === idx)) return;
+                setExpression([...expression, { type, value, plateIdx: idx, id: Math.random() }]);
+            };
+
+            const checkPro = () => {
+                if (isProblemSolved) return;
+
+                if (expression.filter(e => e.type === 'digit').length !== 4) {
+                    setFeedback({ text: "번호판의 숫자 4개를 빠짐없이 모두 사용해야 합니다!", type: "error" });
+                    return;
+                }
+                
+                const str = expression.map(e => e.value).join('').replace(/×/g, '*').replace(/÷/g, '/');
+                try {
+                    const result = evaluateSafe(str);
+                    if (result === 0) {
+                        setIsProblemSolved(true); 
+                        setFeedback({ text: "완벽해요! 아름다운 수식으로 0을 만들었습니다! ?? 부스터 가동!", type: "success" });
+                        
+                        const nextScore = score + 50;
+                        const nextSolved = Math.floor(nextScore / 50);
+                        setScore(nextScore);
+
+                        // 교사 관리 도구 실시간 싱크업
+                        syncStudentScore(nextScore, nextSolved);
+
+                        setTimeout(() => {
+                            drivingState.current = {
+                                ...drivingState.current,
+                                playerX: 200,
+                                targetCarSpawned: false,
+                                isCollisionTriggered: false,
+                                boosterActive: true,
+                                boosterTimer: 120
+                            };
+                            setView("driving");
+
+                            setTimeout(() => {
+                                drivingState.current.targetCarY = -200;
+                                drivingState.current.targetCarPlate = generateValidPlate(gameMode);
+                                drivingState.current.targetCarSpawned = true;
+                            }, 2000);
+
+                        }, 2000);
+                    } else { 
+                        setFeedback({ text: `계산 결과가 ${result}입니다. 다시 한 번 0을 만들어 보세요!`, type: "error" }); 
+                    }
+                } catch(e) { 
+                    setFeedback({ text: "계산식이 올바르지 않습니다. 괄호 짝이나 부호를 확인해 주세요!", type: "error" });
+                }
+            };
+
+            const startSingleMode = (mode) => {
+                // 피드백 반영: 초기 메인 화면 닉네임 요구 제거 및 자동 '도전자' 닉네임 할당
+                setNickname("도전자");
+                setGameMode(mode);
+                setRoomPin(""); // 혼자하기이므로 PIN 세션 비움
+                setScore(0);
+                setTimer(0);
+                startDrivingPhysics(mode);
+            };
+
+            if (view === "main") return (
+                <div className="min-h-screen flex flex-col md:flex-row items-center justify-center p-8 gap-16 bg-sky-50 relative overflow-hidden">
+                    <div className="flex-1 text-center md:text-left z-10 space-y-8">
+                        <h1 className="text-7xl md:text-[9rem] font-title text-indigo-950 tracking-tighter leading-none drop-shadow-md">
+                            고속도로<br/><span className="text-sky-500">수학왕</span>
+                        </h1>
+                        <p className="text-indigo-600 text-xl font-bold italic">“길 위에서 스쳐 지나는 숫자로 푸는 재미있는 수학 교실”</p>
+                    </div>
+
+                    <div className="flex-1 w-full max-w-sm space-y-6 z-10 bg-white p-6 rounded-[40px] border border-sky-100 shadow-xl">
+                        {/* 1. 교사용 관리 포털 버튼 */}
+                        <div className="border-b border-sky-100 pb-4">
+                            <p className="text-slate-500 text-xs font-bold mb-2">교실용 제어 메뉴</p>
+                            <button onClick={() => setView("teacherSetup")} className="w-full p-5 bg-sky-500 hover:bg-sky-600 rounded-[28px] btn-3d font-black text-xl text-white">?? 교사용 대시보드 개설</button>
+                        </div>
+
+                        {/* 2. 학생용 입장 포털 버튼 */}
+                        <div className="border-b border-sky-100 pb-4">
+                            <p className="text-slate-500 text-xs font-bold mb-2">실시간 수업 참가</p>
+                            <button onClick={() => setView("studentJoin")} className="w-full p-5 bg-yellow-400 hover:bg-yellow-500 rounded-[28px] btn-3d font-black text-xl text-slate-900">?? 학생용 실시간 입장</button>
+                        </div>
+
+                        {/* 3. 혼자 하기 모드 */}
+                        <div>
+                            <p className="text-slate-500 text-xs font-bold mb-2">혼자 도전하기</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                <button onClick={() => startSingleMode("beginner")} className="p-3 bg-emerald-500 hover:bg-emerald-600 rounded-2xl font-black text-sm text-white">초급</button>
+                                <button onClick={() => startSingleMode("mid")} className="p-3 bg-orange-500 hover:bg-orange-600 rounded-2xl font-black text-sm text-white">중급</button>
+                                <button onClick={() => startSingleMode("pro")} className="p-3 bg-rose-50 hover:bg-rose-600 rounded-2xl font-black text-sm text-white">고급</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="fixed bottom-0 w-full h-32 road-line"></div>
+                </div>
+            );
+
+            if (view === "tutorial") return (
+                <div className="min-h-screen flex items-center justify-center p-6 bg-sky-100">
+                    <div className="bg-white rounded-[40px] p-10 max-w-lg w-full text-center shadow-2xl scale-in">
+                        <h2 className="text-2xl font-black mb-6 text-sky-600">{tutorials[tutoStep].title}</h2>
+                        <div className="bg-slate-50 p-8 rounded-3xl mb-10 border-2 border-slate-100 text-left">
+                            <p className="font-bold text-slate-600 mb-6 text-lg">{tutorials[tutoStep].desc}</p>
+                            <div className="text-3xl font-black text-sky-500 text-center tracking-tight">{tutorials[tutoStep].ex}</div>
+                        </div>
+                        <div className="flex gap-4">
+                            {tutoStep === 0 && (
+                                <React.Fragment>
+                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">다음</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold text-slate-600 transition-colors">나가기</button>
+                                </React.Fragment>
+                            )}
+                            {(tutoStep === 1 || tutoStep === 2) && (
+                                <React.Fragment>
+                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">이전</button>
+                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">다음</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-300 transition-colors">나가기</button>
+                                </React.Fragment>
+                            )}
+                            {tutoStep === 3 && (
+                                <React.Fragment>
+                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">이전</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-green-500 text-white rounded-2xl font-bold">도전하기</button>
+                                </React.Fragment>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // 교사용 방 난이도 세팅 모달
+            if (view === "teacherSetup") return (
+                <div className="min-h-screen flex items-center justify-center p-6 bg-sky-50">
+                    <div className="bg-white border border-sky-100 rounded-[40px] p-8 max-w-md w-full text-center shadow-2xl scale-in text-slate-800">
+                        <h2 className="text-2xl font-black mb-6 text-sky-600">교사용 세션 개설</h2>
+                        <p className="text-slate-500 text-sm mb-6">학생들이 함께 참여할 혼합계산 난이도를 선택해 주세요.</p>
+                        
+                        <div className="space-y-3 mb-8">
+                            <button 
+                                onClick={() => setTeacherModeSelected("beginner")}
+                                className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "beginner" ? "bg-emerald-50 border-emerald-400 text-emerald-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                            >
+                                <span>?? 초급 (4개 사칙연산)</span>
+                                {teacherModeSelected === "beginner" && <Icons.Sparkles />}
+                            </button>
+                            <button 
+                                onClick={() => setTeacherModeSelected("mid")}
+                                className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "mid" ? "bg-orange-50 border-orange-400 text-orange-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                            >
+                                <span>?? 중급 (빈칸 추리 및 다각화 수식)</span>
+                                {teacherModeSelected === "mid" && <Icons.Sparkles />}
+                            </button>
+                            <button 
+                                onClick={() => setTeacherModeSelected("pro")}
+                                className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "pro" ? "bg-rose-50 border-rose-400 text-rose-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                            >
+                                <span>?? 고급 (4자리 0 만들기)</span>
+                                {teacherModeSelected === "pro" && <Icons.Sparkles />}
+                            </button>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">취소</button>
+                            <button onClick={handleCreateSession} className="flex-1 py-4 bg-sky-500 text-white rounded-2xl font-bold btn-3d">방 만들기</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            if (view === "teacherDashboard") return (
+                <div className="min-h-screen bg-sky-50 p-6 md:p-12 flex flex-col items-center">
+                    <div className="w-full max-w-4xl bg-white border border-sky-100 rounded-[40px] p-8 shadow-2xl space-y-8 text-slate-800 scale-in">
+                        {/* 헤더 */}
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-b border-sky-100 pb-6">
+                            <div className="text-center md:text-left">
+                                <span className="text-xs text-sky-500 font-bold uppercase tracking-widest">실시간 클라우드 교실</span>
+                                <h2 className="text-3xl font-black font-title mt-1 text-slate-900">고속도로 수학왕 현황 대시보드</h2>
+                            </div>
+                            <div className="bg-sky-50 p-4 rounded-3xl border border-sky-100 text-center">
+                                <p className="text-xs text-slate-500 font-bold">학생 접속 핀번호</p>
+                                <p className="text-4xl font-black text-sky-600 font-mono tracking-widest mt-1 animate-pulse">{roomPin}</p>
+                            </div>
+                        </div>
+
+                        {/* 세션 상태 정보 요약 */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 text-center">
+                                <span className="text-slate-500 text-xs font-bold block">개설 난이도</span>
+                                <span className="text-lg font-black text-sky-600 mt-1 block">
+                                    {teacherModeSelected === "beginner" ? "초급 (4개)" : teacherModeSelected === "mid" ? "중급 (빈칸)" : "고급 (0만들기)"}
+                                </span>
+                            </div>
+                            <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 text-center">
+                                <span className="text-slate-500 text-xs font-bold block">참여 인원</span>
+                                <span className="text-lg font-black text-emerald-600 mt-1 block">{studentList.length} 명</span>
+                            </div>
+                            <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 col-span-2 text-center">
+                                <span className="text-slate-500 text-xs font-bold block">클라우드 동기화 상태</span>
+                                <span className="text-sm font-bold mt-1 block text-sky-800">
+                                    {isFirebaseOnline ? "?? 정상 가동 중 (실시간 연동)" : "?? 오프라인 모드 (가상 시뮬레이터 가동 중)"}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* 참여자 통계 리스트 */}
+                        <div className="bg-sky-50/20 rounded-3xl border border-sky-100 overflow-hidden shadow-inner">
+                            <div className="p-4 bg-sky-100/70 border-b border-sky-200 font-bold text-sm text-slate-700 flex justify-between">
+                                <span className="w-1/3">도전자 별명</span>
+                                <span className="w-1/3 text-center">해결 문항 수</span>
+                                <span className="w-1/3 text-right">종합 누적 점수</span>
+                            </div>
+                            <div className="divide-y divide-sky-100 max-h-[300px] overflow-y-auto bg-white">
+                                {studentList.length === 0 ? (
+                                    <div className="p-8 text-center text-slate-400 text-sm">
+                                        아직 입장한 학생이 없습니다. 학생용 페이지에서 핀번호를 입력해 주십시오.
+                                    </div>
+                                ) : (
+                                    studentList.map((student, idx) => (
+                                        <div key={idx} className="p-4 flex justify-between items-center hover:bg-sky-50/50 transition-colors">
+                                            <span className="w-1/3 font-black text-slate-800">{student.nickname}</span>
+                                            <span className="w-1/3 text-center font-bold text-indigo-600 font-mono">{student.solved || 0} 개</span>
+                                            <span className="w-1/3 text-right font-black text-sky-600 font-mono text-lg">{student.score || 0} 점</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4">
+                            <button onClick={() => setView("main")} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold transition-colors">대시보드 종료</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // 학생용 실시간 입장 핀코드 폼
+            if (view === "studentJoin") return (
+                <div className="min-h-screen flex items-center justify-center p-6 bg-sky-50">
+                    <div className="bg-white border border-sky-100 rounded-[40px] p-8 max-w-sm w-full text-center shadow-2xl scale-in text-slate-800">
+                        <h2 className="text-2xl font-black mb-2 text-sky-600">교실 입장하기</h2>
+                        <p className="text-slate-500 text-sm mb-6">선생님 화면의 6자리 핀번호를 입력하고 입장하세요.</p>
+                        
+                        <div className="space-y-4 mb-8">
+                            <div>
+                                <label className="block text-left text-xs text-slate-500 font-bold mb-1 pl-1">방 핀번호 (6자리)</label>
+                                <input 
+                                    type="number" 
+                                    placeholder="000000"
+                                    className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-sky-400 text-slate-800 font-black text-center text-3xl outline-none transition-all tracking-widest"
+                                    value={pinInput}
+                                    onChange={e => setPinInput(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-left text-xs text-slate-500 font-bold mb-1 pl-1">자신의 닉네임</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="이름 입력 (예: 홍길동)"
+                                    className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-sky-400 text-slate-800 font-bold text-center text-lg outline-none transition-all"
+                                    value={nickname}
+                                    onChange={e => setNickname(e.target.value)}
+                                />
+                            </div>
+                            <button onClick={() => setView("tutorial")} className="w-full mt-1 py-3 bg-sky-50 hover:bg-sky-100 rounded-2xl font-bold text-sm text-sky-900 border border-sky-100 transition-colors">?? 학습 가이드 북</button>
+                            {nicknameError && (
+                                <p className="text-red-500 text-xs font-bold text-left pl-1">{nicknameError}</p>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">뒤로가기</button>
+                            <button onClick={handleStudentJoin} className="flex-1 py-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-2xl font-black btn-3d">수업 참여</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const midHintData = getMidHintData();
+
+            return (
+                <div className="min-h-screen bg-sky-50 flex flex-col items-center p-4">
+                    {/* 상단 통계 판넬 (산뜻한 소프트 화이트 템플릿) */}
+                    <div className="w-full max-w-6xl flex justify-between items-center bg-white text-slate-800 p-5 rounded-[32px] shadow-md mb-6 border border-sky-100">
+                        <div className="flex gap-3 items-center">
+                            <span className="font-black text-amber-600 text-2xl">{score}점</span>
+                            {roomPin && (
+                                <span className="bg-sky-100 text-sky-700 border border-sky-200 text-xs font-black px-3 py-1 rounded-full">
+                                    방 PIN: {roomPin}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex gap-6 items-center">
+                            <span className="text-slate-500 font-bold text-sm hidden sm:inline">경과 시간:</span>
+                            <div className="px-4 py-1.5 bg-sky-50 rounded-full font-mono font-bold text-sm text-sky-700 border border-sky-100">
+                                {Math.floor(timer/60)}:{String(timer%60).padStart(2,'0')}
+                            </div>
+                        </div>
+                        <button onClick={() => setView("main")} className="bg-slate-100 hover:bg-slate-200 px-5 py-2 rounded-xl font-bold text-sm text-slate-600 transition-colors">그만하기</button>
+                    </div>
+
+                    {/* --- 2분할 메인 콘텐츠 뷰포트 --- */}
+                    <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start px-2">
+                        
+                        {/* 1. 왼쪽 분할: 주행 물리 시뮬레이터 (Canvas 상시 가동) */}
+                        <div className="lg:col-span-5 flex flex-col items-center justify-center w-full">
+                            <div className="w-full max-w-[380px] md:max-w-[400px] aspect-[40/45] relative bg-slate-950 rounded-[40px] overflow-hidden border-4 border-sky-200 p-1 shadow-2xl scale-in">
+                                <canvas 
+                                    ref={canvasRef} 
+                                    width={400} 
+                                    height={450} 
+                                    className="w-full h-full bg-slate-900 block cursor-pointer select-none"
+                                    onMouseDown={handleMouseDown}
+                                    onMouseMove={handleMouseMove}
+                                    onMouseUp={handleMouseUp}
+                                    onMouseLeave={handleMouseUp}
+                                    onTouchStart={handleTouchStart}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={handleTouchEnd}
+                                    onTouchCancel={handleTouchEnd}
+                                />
+
+                                {/* 주행 조작 힌트 스틱 오버레이 */}
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-700 text-white text-[10px] md:text-xs font-bold pointer-events-none text-center animate-pulse w-[90%]">
+                                    PC: 방향키(↑,←,→) / 모바일: 화면 좌우 터치 주행!
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. 오른쪽 분할: 주행 디렉토리 대시보드 OR 수학 문제 레이아웃 */}
+                        <div className="lg:col-span-7 w-full flex flex-col items-center">
+                            
+                            {/* [주행 상태 모드] 대시보드 렌더링 */}
+                            {view === "driving" && (
+                                <div className="bg-white border border-sky-100 rounded-[40px] p-8 w-full min-h-[450px] flex flex-col justify-between shadow-xl scale-in text-slate-800">
+                                    <div className="text-center space-y-2">
+                                        <span className="text-sky-500 text-xs font-black tracking-widest uppercase">고속도로 컨트롤 데스크</span>
+                                        <h2 className="text-3xl font-black font-title text-slate-900">실시간 주행 대시보드</h2>
+                                    </div>
+
+                                    {/* 실시간 레이더 스캐너 기믹 */}
+                                    <div className="my-8 flex flex-col items-center justify-center relative py-6">
+                                        <div className="w-32 h-32 rounded-full border-4 border-dashed border-sky-300 flex items-center justify-center animate-spin">
+                                            <div className="w-24 h-24 rounded-full border-2 border-sky-200 flex items-center justify-center">
+                                                <div className="w-12 h-12 rounded-full bg-sky-50 flex items-center justify-center">
+                                                    <span className="text-sky-400 animate-ping">??</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 text-center">
+                                            {speed === 0 ? (
+                                                <p className="text-amber-500 font-bold blink text-lg">?? 대기 상태: 가속 페달(위쪽 방향키)을 누르세요!</p>
+                                            ) : drivingState.current.boosterActive ? (
+                                                <p className="text-rose-500 font-black text-xl animate-bounce">? 수퍼 부스터 가동 중! 추월 성공!</p>
+                                            ) : (
+                                                <p className="text-emerald-600 font-bold text-lg">?? 순항 중: 앞에 정지해 있는 적색 차량을 찾으세요!</p>
+                                            )}
+                                            <p className="text-slate-400 text-xs mt-2">앞 차의 번호판을 확보하는 즉시 수학 배틀이 시작됩니다.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* 컨트롤 피드백 판넬 */}
+                                    <div className="bg-sky-50 rounded-3xl p-5 border border-sky-100 text-slate-700">
+                                        <div className="flex justify-around items-center text-center">
+                                            <div className="space-y-1">
+                                                <span className="text-xs text-slate-400 font-bold block">조종석</span>
+                                                <span className="font-black text-indigo-700 text-md">{nickname} 드라이버</span>
+                                            </div>
+                                            <div className="h-8 w-px bg-sky-200"></div>
+                                            {/* 가상 물리 피드백 램프 */}
+                                            <div className="flex gap-2">
+                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${keysPressed.left ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/50' : 'bg-slate-100 text-slate-400'}`}>LEFT</span>
+                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${keysPressed.up ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/50' : 'bg-slate-100 text-slate-400'}`}>ACCEL</span>
+                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${keysPressed.right ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/50' : 'bg-slate-100 text-slate-400'}`}>RIGHT</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* [수학 문제 풀이 모드] 렌더링 */}
+                            {view === "solving" && problem && (
+                                <div className="w-full flex flex-col items-center scale-in">
+                                    <LicensePlate 
+                                        mode={problem.mode} 
+                                        digits={problem.digits} 
+                                        blankIdx={problem.mode === "mid" ? problem.blankIdx : -1} 
+                                        isUsedIdx={problem.mode === "pro" ? expression.map(e => e.plateIdx) : []} 
+                                    />
+
+                                    <div className="bg-white w-full rounded-[40px] p-6 md:p-10 shadow-2xl border border-sky-100 text-center relative mt-2">
+                                        {/* 1분 경과 힌트 보기 뱃지 */}
+                                        {problemTimer >= 60 && (problem.mode === "mid" || problem.mode === "pro") && (
+                                            <button 
+                                                onClick={() => setShowHintModal(true)}
+                                                className="absolute top-4 right-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in animate-bounce z-10"
+                                            >
+                                                <span>?? 힌트 보기</span>
+                                            </button>
+                                        )}
+
+                                        {problem.mode === "pro" ? (
+                                            <div className="space-y-6">
+                                                <div className="min-h-[90px] bg-sky-50/50 rounded-3xl border-2 border-dashed border-sky-100 p-4 flex flex-wrap justify-center gap-2 items-center">
+                                                    {expression.map(e => <span key={e.id} className={`px-4 py-2.5 rounded-xl font-black text-2xl shadow-sm ${e.type === 'digit' ? 'bg-sky-500 text-white' : 'bg-yellow-100 text-yellow-700'}`}>{e.value}</span>)}
+                                                    {expression.length > 0 && <span className="text-2xl font-black text-slate-400 ml-2">= 0</span>}
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                                                    <div>
+                                                        <div className="grid grid-cols-2 gap-3 h-28">
+                                                            {problem.digits.map((d, i) => (
+                                                                <button key={i} onClick={() => addExpr('digit', d, i)} disabled={isProblemSolved || expression.some(e => e.plateIdx === i)} className="bg-white border-2 rounded-xl font-black text-2xl btn-3d disabled:opacity-10 shadow-sm">{d}</button>
+                                                            ))}
+                                                        </div>
+                                                        <p className="text-xs font-bold text-slate-500 mt-4 ml-1 uppercase tracking-widest flex justify-between">
+                                                            <span>사용 가능한 숫자 (4개)</span>
+                                                            <span>{expression.filter(i => i.type === 'digit').length} / 4</span>
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            {['+', '-', '×', '÷', '(', ')'].map(o => (
+                                                                <button key={o} onClick={() => addExpr('op', o)} disabled={isProblemSolved} className="h-12 bg-slate-100 rounded-xl font-black text-xl btn-3d disabled:opacity-50 text-slate-700 border border-slate-200">
+                                                                    {o}
+                                                                </button>
+                                                            ))}
+                                                            <button onClick={() => setExpression(expression.slice(0, -1))} disabled={isProblemSolved} className="col-span-3 h-12 bg-red-50 text-red-500 rounded-xl font-black text-md btn-3d disabled:opacity-50">
+                                                                지우기
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button onClick={checkPro} disabled={isProblemSolved} className="w-full py-5 bg-sky-500 text-white rounded-[24px] font-black text-xl shadow-lg btn-3d disabled:opacity-50">0 만들기 도전!</button>
+                                            </div>
+                                        ) : (
+                                            <form onSubmit={handleAnswerSubmit} className="space-y-8">
+                                                <div className="text-3xl md:text-4xl font-black tracking-tight flex flex-wrap justify-center items-center gap-3 text-slate-850">
+                                                    {problem.mode === "beginner" ? (
+                                                        <>
+                                                            <span>{problem.digits[0]}</span>
+                                                            <span className="text-slate-400">{problem.ops[0]}</span>
+                                                            <span>{problem.digits[1]}</span>
+                                                            <span className="text-slate-400">{problem.ops[1]}</span>
+                                                            <span>{problem.digits[2]}</span>
+                                                            <span className="text-slate-400">{problem.ops[2]}</span>
+                                                            <span>{problem.digits[3]}</span>
+                                                            <span className="text-slate-400">=</span>
+                                                            <span className="text-indigo-600 border-b-4 border-indigo-100 px-1 animate-pulse">?</span>
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex flex-wrap items-center justify-center gap-1 md:gap-1.5 select-none bg-sky-50/50 px-4 py-3.5 rounded-3xl border border-sky-100 shadow-sm text-slate-800">
+                                                            {problem.templateType === "triple_pair" && (
+                                                                <>
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl mr-0.5">(</span>
+                                                                    {problem.blankIdx === 0 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[0]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[0]}</span>
+                                                                    {problem.blankIdx === 1 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[1]}</span>}
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl ml-0.5">)</span>
+
+                                                                    <span className="text-amber-500 font-black text-xl md:text-2xl mx-1.5">{problem.ops[1]}</span>
+
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl mr-0.5">(</span>
+                                                                    {problem.blankIdx === 2 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[2]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[2]}</span>
+                                                                    {problem.blankIdx === 3 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[3]}</span>}
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl ml-0.5">)</span>
+
+                                                                    <span className="text-amber-500 font-black text-xl md:text-2xl mx-1.5">{problem.ops[3]}</span>
+
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl mr-0.5">(</span>
+                                                                    {problem.blankIdx === 4 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[4]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[4]}</span>
+                                                                    {problem.blankIdx === 5 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[5]}</span>}
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl ml-0.5">)</span>
+                                                                </>
+                                                            )}
+
+                                                            {problem.templateType === "double_triple" && (
+                                                                <>
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl mr-0.5">(</span>
+                                                                    {problem.blankIdx === 0 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[0]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[0]}</span>
+                                                                    {problem.blankIdx === 1 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[1]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[1]}</span>
+                                                                    {problem.blankIdx === 2 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[2]}</span>}
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl ml-0.5">)</span>
+
+                                                                    <span className="text-amber-500 font-black text-xl md:text-2xl mx-1.5">{problem.ops[2]}</span>
+
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl mr-0.5">(</span>
+                                                                    {problem.blankIdx === 3 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[3]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[3]}</span>
+                                                                    {problem.blankIdx === 4 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[4]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-0.5">{problem.ops[4]}</span>
+                                                                    {problem.blankIdx === 5 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[5]}</span>}
+                                                                    <span className="text-indigo-500 font-black text-xl md:text-2xl ml-0.5">)</span>
+                                                                </>
+                                                            )}
+
+                                                            {problem.templateType === "flat_mixed" && (
+                                                                <>
+                                                                    {problem.blankIdx === 0 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[0]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-1">{problem.ops[0]}</span>
+                                                                    {problem.blankIdx === 1 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[1]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-1">{problem.ops[1]}</span>
+                                                                    {problem.blankIdx === 2 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[2]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-1">{problem.ops[2]}</span>
+                                                                    {problem.blankIdx === 3 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[3]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-1">{problem.ops[3]}</span>
+                                                                    {problem.blankIdx === 4 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[4]}</span>}
+                                                                    <span className="text-slate-400 text-lg md:text-xl font-bold mx-1">{problem.ops[4]}</span>
+                                                                    {problem.blankIdx === 5 ? <span className="text-indigo-600 border-b-4 border-indigo-100 px-1.5 animate-pulse font-black">?</span> : <span>{problem.digits[5]}</span>}
+                                                                </>
+                                                            )}
+
+                                                            <span className="text-sky-400 font-black text-xl mx-2">=</span>
+                                                            <span className="text-slate-900 font-black text-2xl md:text-3xl">{problem.target}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="max-w-xs mx-auto">
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-3xl font-black text-center outline-none focus:ring-4 focus:ring-sky-100 transition-all disabled:opacity-50"
+                                                        placeholder="정답 입력"
+                                                        value={answerInput}
+                                                        onChange={e => setAnswerInput(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                                                                e.preventDefault();
+                                                            }
+                                                        }}
+                                                        disabled={isProblemSolved}
+                                                        autoFocus
+                                                        required
+                                                    />
+                                                </div>
+                                            </form>
+                                        )}
+                                        <p className={`mt-6 text-lg font-bold min-h-[28px] ${feedback.type === 'success' ? 'text-green-500 animate-bounce' : feedback.type === 'error' ? 'text-red-500' : 'text-slate-400'}`}>{feedback.text}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+
+                    {/* --- 중급/고급 플로팅 비모달 힌트 팝업 --- */}
+                    {showHintModal && view === "solving" && (
+                        <div className="fixed md:top-24 md:right-6 bottom-4 left-4 right-4 md:left-auto md:bottom-auto z-40 animate-fade-in pointer-events-none flex justify-center md:justify-end">
+                            <div className="bg-white rounded-[32px] p-5 max-w-sm w-full shadow-2xl relative scale-in border-4 border-yellow-300 pointer-events-auto">
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowHintModal(false)}
+                                    className="absolute -top-3 -right-3 w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-slate-700 font-bold shadow-lg transition-transform"
+                                >
+                                    ?
+                                </button>
+                                <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2 justify-center">
+                                    <span>?? 족집게 계산 힌트</span>
+                                </h3>
+
+                                {/* 1. 중급 모드 힌트 (다변화 템플릿별 조건부 분기 렌더링) */}
+                                {problem.mode === "mid" && midHintData && (
+                                    <>
+                                        {/* (1) 세 쌍 괄호 템플릿 힌트 뷰 */}
+                                        {midHintData.templateType === "triple_pair" && (
+                                            <div className="space-y-4 py-2">
+                                                <p className="text-slate-500 text-[11px] font-bold text-center">선으로 숫자를 묶어 간단하게 계산해 보았어요!</p>
+                                                
+                                                <div className="flex flex-col gap-1.5 text-center">
+                                                    <div className={`p-2 rounded-xl border-2 ${midHintData.hasB1 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                                                        <div className="text-[9px] font-bold text-slate-400">묶음 A</div>
+                                                        <div className="font-black text-xs text-slate-700">{midHintData.expr1}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val1}</div>
+                                                    </div>
+
+                                                    <span className="text-lg font-bold text-slate-300 leading-none">{midHintData.op1}</span>
+
+                                                    <div className={`p-2 rounded-xl border-2 ${midHintData.hasB2 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                                                        <div className="text-[9px] font-bold text-slate-400">묶음 B</div>
+                                                        <div className="font-black text-xs text-slate-700">{midHintData.expr2}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val2}</div>
+                                                    </div>
+
+                                                    <span className="text-lg font-bold text-slate-300 leading-none">{midHintData.op3}</span>
+
+                                                    <div className={`p-2 rounded-xl border-2 ${midHintData.hasB3 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                                                        <div className="text-[9px] font-bold text-slate-400">묶음 C</div>
+                                                        <div className="font-black text-xs text-slate-700">{midHintData.expr3}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val3}</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-indigo-50 p-2.5 rounded-xl text-center border border-indigo-100">
+                                                    <p className="text-[9px] font-bold text-indigo-400 mb-0.5">힌트 수식 요약</p>
+                                                    <span className="text-sm font-black text-indigo-600 block truncate">
+                                                        {(() => {
+                                                            const { hasB1, hasB2, hasB3, op1, op3, val1, val2, val3, target } = midHintData;
+                                                            let term1 = hasB1 ? "( ? )" : val1;
+                                                            
+                                                            let term2 = hasB2 ? "( ? )" : val2;
+                                                            let finalOp1 = op1;
+                                                            let finalTerm2 = term2;
+                                                            if (typeof term2 === 'number' && term2 < 0) {
+                                                                if (op1 === '+') {
+                                                                    finalOp1 = '-';
+                                                                    finalTerm2 = Math.abs(term2);
+                                                                } else if (op1 === '-') {
+                                                                    finalOp1 = '+';
+                                                                    finalTerm2 = Math.abs(term2);
+                                                                }
+                                                            }
+
+                                                            let term3 = hasB3 ? "( ? )" : val3;
+                                                            let finalOp3 = op3;
+                                                            let finalTerm3 = term3;
+                                                            if (typeof term3 === 'number' && term3 < 0) {
+                                                                if (op3 === '+') {
+                                                                    finalOp3 = '-';
+                                                                    finalTerm3 = Math.abs(term3);
+                                                                } else if (op3 === '-') {
+                                                                    finalOp3 = '+';
+                                                                    finalTerm3 = Math.abs(term3);
+                                                                }
+                                                            }
+
+                                                            return `${term1} ${finalOp1} ${finalTerm2} ${finalOp3} ${finalTerm3} = ${target}`;
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* (2) 두 개 3항 괄호 템플릿 힌트 뷰 */}
+                                        {midHintData.templateType === "double_triple" && (
+                                            <div className="space-y-4 py-2">
+                                                <p className="text-slate-500 text-[11px] font-bold text-center">두 개의 큰 묶음으로 나누어 단순하게 정리해 보았어요!</p>
+                                                
+                                                <div className="flex flex-col gap-1.5 text-center">
+                                                    <div className={`p-3 rounded-xl border-2 ${midHintData.hasB1 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                                                        <div className="text-[9px] font-bold text-slate-400">묶음 A (세 항 계산)</div>
+                                                        <div className="font-black text-xs text-slate-700">{midHintData.expr1}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val1}</div>
+                                                    </div>
+
+                                                    <span className="text-lg font-bold text-slate-300 leading-none">{midHintData.op2}</span>
+
+                                                    <div className={`p-3 rounded-xl border-2 ${midHintData.hasB2 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
+                                                        <div className="text-[9px] font-bold text-slate-400">묶음 B (세 항 계산)</div>
+                                                        <div className="font-black text-xs text-slate-700">{midHintData.expr2}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val2}</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-indigo-50 p-2.5 rounded-xl text-center border border-indigo-100">
+                                                    <p className="text-[9px] font-bold text-indigo-400 mb-0.5">힌트 수식 요약</p>
+                                                    <span className="text-sm font-black text-indigo-600 block truncate">
+                                                        {(() => {
+                                                            const { hasB1, hasB2, op2, val1, val2, target } = midHintData;
+                                                            let term1 = hasB1 ? "( ? )" : val1;
+                                                            let term2 = hasB2 ? "( ? )" : val2;
+                                                            let finalOp = op2;
+                                                            let finalTerm2 = term2;
+                                                            if (typeof term2 === 'number' && term2 < 0) {
+                                                                if (op2 === '+') {
+                                                                    finalOp = '-';
+                                                                    finalTerm2 = Math.abs(term2);
+                                                                } else if (op2 === '-') {
+                                                                    finalOp = '+';
+                                                                    finalTerm2 = Math.abs(term2);
+                                                                }
+                                                            }
+                                                            return `${term1} ${finalOp} ${finalTerm2} = ${target}`;
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* (3) 괄호 없는 혼합 계산 템플릿 힌트 뷰 */}
+                                        {midHintData.templateType === "flat_mixed" && (
+                                            <div className="space-y-4 py-2 text-center">
+                                                <p className="text-slate-500 text-[11px] font-bold">곱셈과 나눗셈 부분을 먼저 계산해서 힌트를 모았어요!</p>
+                                                {midHintData.hintsList && midHintData.hintsList.length > 0 ? (
+                                                    <div className="flex flex-col gap-2">
+                                                        {midHintData.hintsList.map((h, idx) => (
+                                                            <div key={idx} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center px-4">
+                                                                <span className="font-bold text-xs text-slate-500">{h.expr}</span>
+                                                                <span className="font-black text-sm text-indigo-600">? {h.val}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-left">
+                                                        <p className="text-xs font-bold text-indigo-700 leading-relaxed">
+                                                            ?? 혼합 계산 규칙 알림:<br/>
+                                                            더하기, 빼기보다 <span className="text-amber-600">곱하기(×)와 나누기(÷)</span>를 무조건 먼저 차례대로 계산해요!
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                <div className="p-2.5 rounded-xl bg-slate-100 text-center text-[10px] font-bold text-slate-400">
+                                                    최종 계산 목표: {midHintData.target}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* 2. 고급 모드 힌트 */}
+                                {problem.mode === "pro" && (
+                                    <div className="space-y-4 py-2 text-center">
+                                        <p className="text-slate-500 text-xs font-bold">식의 일부분을 가린 모범 답안입니다!</p>
+                                        <div className="bg-yellow-50 border-2 border-yellow-100 p-6 rounded-2xl">
+                                            <span className="text-xl md:text-2xl font-black text-amber-700 tracking-wider">{problem.hint} = 0</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 leading-relaxed font-bold">빈칸 □ 자리에 들어갈 숫자가 무엇인지 번호판과 연계해 생각해보세요!</p>
+                                    </div>
+                                )}
+
+                                <button 
+                                    onClick={() => setShowHintModal(false)}
+                                    className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl text-sm transition-colors"
+                                >
+                                    닫기
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
