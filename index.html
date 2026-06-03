@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>°í¼Óµµ·Î ¼öÇÐ¿Õ</title>
-    <!-- ÇÊ¼ö ¶óÀÌºê·¯¸® (¾ÈÁ¤ ¹öÀü ¹× È£È¯¼º È®º¸) -->
+    <title>ê³ ì†ë„ë¡œ ìˆ˜í•™ì™•</title>
+    <!-- í•„ìˆ˜ ë¼ì´ë¸ŒëŸ¬ë¦¬ (ì•ˆì • ë²„ì „ ë° í˜¸í™˜ì„± í™•ë³´) -->
     <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- ½Ç½Ã°£ ±³½Ç µ¥ÀÌÅÍ ±³È¯À» À§ÇÑ Firebase ¶óÀÌºê·¯¸® (·ÎÄÃ file:// È¯°æ ¿Ïº® È£È¯ UMD ¹öÀü) -->
+    <!-- ì‹¤ì‹œê°„ êµì‹¤ ë°ì´í„° êµí™˜ì„ ìœ„í•œ Firebase ë¼ì´ë¸ŒëŸ¬ë¦¬ (ë¡œì»¬ file:// í™˜ê²½ ì™„ë²½ í˜¸í™˜ UMD ë²„ì „) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -21,14 +21,14 @@
         body { 
             font-family: 'Noto Sans KR', sans-serif;
             margin: 0; padding: 0;
-            background-color: #f0f9ff; /* ÇÏ´Ã»ö ¹è°æ (sky-50) */
+            background-color: #f0f9ff; /* í•˜ëŠ˜ìƒ‰ ë°°ê²½ (sky-50) */
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
         .font-title { font-family: 'Black Han Sans', sans-serif; }
 
-        /* µµ·Î ¿òÁ÷ÀÓ ¾Ö´Ï¸ÞÀÌ¼Ç (ÇÏ´Ã»ö ¹è°æ¿¡ ¾î¿ï¸®´Â ±¸¸§ Åæ ¿¬µ¿) */
+        /* ë„ë¡œ ì›€ì§ìž„ ì• ë‹ˆë©”ì´ì…˜ (í•˜ëŠ˜ìƒ‰ ë°°ê²½ì— ì–´ìš¸ë¦¬ëŠ” êµ¬ë¦„ í†¤ ì—°ë™) */
         .road-line {
             background: linear-gradient(90deg, transparent 0%, transparent 50%, rgba(56, 189, 248, 0.2) 50%, rgba(56, 189, 248, 0.2) 100%);
             background-size: 80px 100%;
@@ -36,7 +36,7 @@
         }
         @keyframes roadMove { from { background-position: 0 0; } to { background-position: -80px 0; } }
 
-        /* 3D ¹°¸® ¹öÆ° µðÀÚÀÎ */
+        /* 3D ë¬¼ë¦¬ ë²„íŠ¼ ë””ìžì¸ */
         .btn-3d {
             transition: all 0.1s;
             box-shadow: 0 6px 0 #bae6fd;
@@ -52,19 +52,19 @@
 
         .car-shadow { filter: drop-shadow(0 20px 15px rgba(14, 165, 233, 0.15)); }
 
-        /* Chrome, Safari, Edge, Opera¿¡¼­ È­»ìÇ¥ ½ºÇÉ ¹öÆ° Á¦°Å */
+        /* Chrome, Safari, Edge, Operaì—ì„œ í™”ì‚´í‘œ ìŠ¤í•€ ë²„íŠ¼ ì œê±° */
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
 
-        /* Firefox¿¡¼­ È­»ìÇ¥ ½ºÇÉ ¹öÆ° Á¦°Å */
+        /* Firefoxì—ì„œ í™”ì‚´í‘œ ìŠ¤í•€ ë²„íŠ¼ ì œê±° */
         input[type=number] {
             -moz-appearance: textfield;
         }
 
-        /* ±ôºýÀÌ È¿°ú */
+        /* ê¹œë¹¡ì´ íš¨ê³¼ */
         .blink {
             animation: blinkEffect 1s infinite;
         }
@@ -82,8 +82,9 @@
 
         let db = null;
         let isFirebaseOnline = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'highway-math-king-v1';
 
-        // Á÷Á¢ ¹ß±Þ¹ÞÀº Firebase Á¤º¸¸¦ ÀÔ·ÂÇÕ´Ï´Ù.
+        // ì§ì ‘ ë°œê¸‰ë°›ì€ Firebase ì •ë³´ë¥¼ ìž…ë ¥í•©ë‹ˆë‹¤.
         const firebaseConfig = {
             apiKey: "AIzaSyCXgE91Z8Ju1ozPy9gqkxMSVPQZVYoOhpk",
             authDomain: "trafficjam-9e4a6.firebaseapp.com",
@@ -94,29 +95,22 @@
             measurementId: "G-TJT28Q36QK"
         };
 
-        // ¾ÈÀü ÀåÄ¡: ¼³Á¤Á¤º¸°¡ °¡Â¥ÀÎÁö ½ÇÁ¦ÀÎÁö Ã¼Å©ÇÏ¿© ·ÎÄÃ ±¸µ¿½Ã Å©·¡½Ã ¿øÃµ ¹æÁö
+        // ì•ˆì „ ìž¥ì¹˜: ì„¤ì •ì •ë³´ê°€ ê°€ì§œì¸ì§€ ì‹¤ì œì¸ì§€ ì²´í¬í•˜ì—¬ ë¡œì»¬ êµ¬ë™ì‹œ í¬ëž˜ì‹œ ì›ì²œ ë°©ì§€
         const isConfigValid = firebaseConfig && 
                              firebaseConfig.apiKey && 
-                             !firebaseConfig.apiKey.includes("¹ß±Þ¹ÞÀº_") &&
+                             !firebaseConfig.apiKey.includes("ë°œê¸‰ë°›ì€_") &&
                              firebaseConfig.projectId && 
-                             !firebaseConfig.projectId.includes("¹ß±Þ¹ÞÀº_");
+                             !firebaseConfig.projectId.includes("ë°œê¸‰ë°›ì€_");
 
         if (isConfigValid) {
             try {
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 isFirebaseOnline = true;
-                
-                // ¹é±×¶ó¿îµå ÀÍ¸í ·Î±×ÀÎ °¡µ¿À¸·Î Firebase º¸¾È ±ÔÄ¢ ¹× ¿¬°á¼º À¯Áö
-                firebase.auth().signInAnonymously()
-                    .then(() => console.log("Firebase ±³½Ç µ¥ÀÌÅÍº£ÀÌ½º Á¢¼Ó ¹× ÀÍ¸í ·Î±×ÀÎ ¼º°ø!"))
-                    .catch((err) => console.warn("ÀÍ¸í ·Î±×ÀÎ ±ÇÇÑ º¸·ù (µ¥ÀÌÅÍº£ÀÌ½º ¿¬°áÀº À¯ÁöµË´Ï´Ù):", err));
             } catch (e) {
-                console.error("Firebase ÃÊ±âÈ­ Áß Áß´ë ¿À·ù°¡ ¹ß»ýÇÏ¿© ¾ÈÀüÇÏ°Ô ¿ÀÇÁ¶óÀÎ ½Ã¹Ä·¹ÀÌÅÍ·Î ±âµ¿ÇÕ´Ï´Ù:", e);
+                console.error("Firebase ì´ˆê¸°í™” ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤:", e);
                 isFirebaseOnline = false;
             }
-        } else {
-            console.log("Firebase ¿¬µ¿ Á¤º¸°¡ °¨ÁöµÇÁö ¾Ê¾Æ ¾ÈÀüÇÏ°Ô [¿ÀÇÁ¶óÀÎ °¡»ó ±³½Ç ¸ðµå]·Î ±âµ¿ÇÕ´Ï´Ù.");
         }
 
         const Icons = {
@@ -173,7 +167,7 @@
                                 );
                             })}
                         </div>
-                        <span className="text-sky-600 text-lg md:text-xl">°¡</span>
+                        <span className="text-sky-600 text-lg md:text-xl">ê°€</span>
                         <div className="flex gap-1">
                             {digits.slice(2).map((d, i) => {
                                 const realIdx = i + 2;
@@ -204,26 +198,40 @@
             const [isProblemSolved, setIsProblemSolved] = useState(false);
             const [feedback, setFeedback] = useState({ text: "", type: "" });
             const [tutoStep, setTutoStep] = useState(0);
+            const [showSingleModes, setShowSingleModes] = useState(false); // í˜¼ìž ë„ì „í•˜ê¸° ì„¸ë¶€ ë©”ë‰´ í‘œì‹œ ì—¬ë¶€
 
-            // ½Ç½Ã°£ ±³½Ç¿ë µ¿±âÈ­ »óÅÂ
+            // ì‹¤ì‹œê°„ êµì‹¤ìš© ë™ê¸°í™” ìƒíƒœ
             const [roomPin, setRoomPin] = useState("");
             const [pinInput, setPinInput] = useState("");
-            const [studentList, setStudentList] = useState([]); // ±³»ç¿ë ÇÐ»ý ¸®½ºÆ®
-            const [teacherModeSelected, setTeacherModeSelected] = useState("beginner"); // ±³»ç°¡ °³¼³ÇÒ ¹æ ³­ÀÌµµ
+            const [studentList, setStudentList] = useState([]); // êµì‚¬ìš© í•™ìƒ ë¦¬ìŠ¤íŠ¸
+            const [teacherModeSelected, setTeacherModeSelected] = useState("beginner"); // êµì‚¬ê°€ ê°œì„¤í•  ë°© ë‚œì´ë„
 
-            // ÁÖÇà ¹°¸® °¡¼Ó Á¦¾î
+            // íŒŒì´ì–´ë² ì´ìŠ¤ ì¸ì¦ ì—¬ë¶€ ìƒíƒœ
+            const [firebaseUser, setFirebaseUser] = useState(null);
+
+            // ëˆ„ì  ëª…ì˜ˆì˜ ì „ë‹¹ ìƒíƒœ ë° ì €ìž¥ ëª¨ë‹¬ ì œì–´
+            const [globalLeaderboard, setGlobalLeaderboard] = useState([]);
+            const [showSaveScoreModal, setShowSaveScoreModal] = useState(false);
+            const [saveScoreName, setSaveScoreName] = useState("");
+
+            // Gemini API ì—°ë™ ìƒíƒœ
+            const [aiHintText, setAiHintText] = useState("");
+            const [aiLoading, setAiLoading] = useState(false);
+            const [showAiModal, setShowAiModal] = useState(false);
+
+            // ì£¼í–‰ ë¬¼ë¦¬ ê°€ì† ì œì–´
             const [speed, setSpeed] = useState(0);
             const [keysPressed, setKeysPressed] = useState({ up: false, left: false, right: false });
 
-            // ¹®Á¦º° Å¸ÀÌ¸Ó ¹× ÈùÆ® ÆË¾÷ »óÅÂ
+            // ë¬¸ì œë³„ íƒ€ì´ë¨¸ ë° ížŒíŠ¸ íŒì—… ìƒíƒœ
             const [problemTimer, setProblemTimer] = useState(0);
             const [showHintModal, setShowHintModal] = useState(false);
 
-            // Canvas ·¹ÆÛ·±½º
+            // Canvas ë ˆí¼ëŸ°ìŠ¤
             const canvasRef = useRef(null);
             const animationFrameRef = useRef(null);
 
-            // µå¶óÀÌºù ¿£Æ¼Æ¼ »óÅÂ (ÁÂ¿ì ½ºÆ¼¾î¸µ ¹× ÅÍÄ¡ Á¦¾î)
+            // ë“œë¼ì´ë¹™ ì—”í‹°í‹° ìƒíƒœ (ì¢Œìš° ìŠ¤í‹°ì–´ë§ ë° í„°ì¹˜ ì œì–´)
             const drivingState = useRef({
                 roadOffset: 0,
                 playerX: 200,
@@ -240,27 +248,55 @@
                 speed: 0
             });
 
-            // Á¾ÇÕ 4´Ü°è ÇÐ½À °¡ÀÌµå ½½¶óÀÌµå µ¥ÀÌÅÍ
+            // ì¢…í•© 4ë‹¨ê³„ í•™ìŠµ ê°€ì´ë“œ ìŠ¬ë¼ì´ë“œ ë°ì´í„°
             const tutorials = [
-                { title: "±ÔÄ¢ 1. ¼ø¼­´ë·Î °è»êÇÏ±â", desc: "´õÇÏ±â(+)¿Í »©±â(-)¸¸ ÀÖÀ» ¶§´Â ¹«Á¶°Ç ¾Õ¿¡¼­ºÎÅÍ ¼ø¼­´ë·Î °è»êÇØ¿ä.", ex: "15 - 5 + 3 = 10 + 3 = 13" },
-                { title: "±ÔÄ¢ 2. °öÇÏ±â¸¦ ¸ÕÀú!", desc: "´õÇÏ±â(+), »©±â(-)º¸´Ù °öÇÏ±â(¡¿)¸¦ ¹«Á¶°Ç ¸ÕÀú ÇØ¾ß ÇØ¿ä.", ex: "4 + 2 ¡¿ 5 = 4 + 10 = 14" },
-                { title: "±ÔÄ¢ 3. ³ª´©±âµµ ÈûÀÌ ¼¼¿ä!", desc: "°öÇÏ±â(¡¿)¿Í ¸¶Âù°¡Áö·Î ³ª´©±â(¡À)µµ ´õÇÏ±â, »©±âº¸´Ù ¸ÕÀú °è»êÇØ¿ä.", ex: "12 - 6 ¡À 2 = 12 - 3 = 9" },
-                { title: "±ÔÄ¢ 4. ¹«ÀûÀÇ ÇØ°á»ç °ýÈ£ ( )", desc: "°ýÈ£ ( )°¡ º¸ÀÌ¸é ¸ðµç ±ÔÄ¢À» ¹«½ÃÇÏ°í °ýÈ£ ¾ÈÀ» 1µîÀ¸·Î °è»êÇØ¿ä!", ex: "(4 + 2) ¡¿ 5 = 6 ¡¿ 5 = 30" }
+                { title: "ê·œì¹™ 1. ìˆœì„œëŒ€ë¡œ ê³„ì‚°í•˜ê¸°", desc: "ë”í•˜ê¸°(+)ì™€ ë¹¼ê¸°(-)ë§Œ ìžˆì„ ë•ŒëŠ” ë¬´ì¡°ê±´ ì•žì—ì„œë¶€í„° ìˆœì„œëŒ€ë¡œ ê³„ì‚°í•´ìš”.", ex: "15 - 5 + 3 = 10 + 3 = 13" },
+                { title: "ê·œì¹™ 2. ê³±í•˜ê¸°ë¥¼ ë¨¼ì €!", desc: "ë”í•˜ê¸°(+), ë¹¼ê¸°(-)ë³´ë‹¤ ê³±í•˜ê¸°(Ã—)ë¥¼ ë¬´ì¡°ê±´ ë¨¼ì € í•´ì•¼ í•´ìš”.", ex: "4 + 2 Ã— 5 = 4 + 10 = 14" },
+                { title: "ê·œì¹™ 3. ë‚˜ëˆ„ê¸°ë„ íž˜ì´ ì„¸ìš”!", desc: "ê³±í•˜ê¸°(Ã—)ì™€ ë§ˆì°¬ê°€ì§€ë¡œ ë‚˜ëˆ„ê¸°(Ã·)ë„ ë”í•˜ê¸°, ë¹¼ê¸°ë³´ë‹¤ ë¨¼ì € ê³„ì‚°í•´ìš”.", ex: "12 - 6 Ã· 2 = 12 - 3 = 9" },
+                { title: "ê·œì¹™ 4. ë¬´ì ì˜ í•´ê²°ì‚¬ ê´„í˜¸ ( )", desc: "ê´„í˜¸ ( )ê°€ ë³´ì´ë©´ ëª¨ë“  ê·œì¹™ì„ ë¬´ì‹œí•˜ê³  ê´„í˜¸ ì•ˆì„ 1ë“±ìœ¼ë¡œ ê³„ì‚°í•´ìš”!", ex: "(4 + 2) Ã— 5 = 6 Ã— 5 = 30" }
             ];
 
-            // Å¸ÀÌ¸Ó ÅëÇÕ Á¦¾î
+            // RULE 3 - Auth Before Queries (ì„ ì¸ì¦ ê°€ë“œ ë° ëª…ì˜ˆì˜ ì „ë‹¹ ë°ì´í„° ì¡°íšŒ)
             useEffect(() => {
-                let interval;
-                if (view === "driving" || view === "solving") {
-                    interval = setInterval(() => {
-                        setTimer(t => t + 1);
-                        if (view === "solving") {
-                            setProblemTimer(pt => pt + 1);
+                if (!isConfigValid) return;
+                const auth = firebase.auth();
+                const initAuth = async () => {
+                    try {
+                        let user = auth.currentUser;
+                        if (!user) {
+                            user = await auth.signInAnonymously();
                         }
-                    }, 1000);
-                }
-                return () => clearInterval(interval);
-            }, [view]);
+                        setFirebaseUser(user);
+                    } catch (e) {
+                        console.warn("ì¸ì¦ ì‹¤íŒ¨, ìž¬í˜¸ì¶œ ì§„í–‰:", e);
+                    }
+                };
+                initAuth();
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    setFirebaseUser(user);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // ëª…ì˜ˆì˜ ì „ë‹¹ ì‹¤ì‹œê°„ ëˆ„ì  êµ¬ë… (RULE 1, 2 ì¤€ìˆ˜ - Compound Query ì—†ì´ ìˆ˜ë™ ì¸ë©”ëª¨ë¦¬ ì •ë ¬)
+            useEffect(() => {
+                if (!db || !firebaseUser) return;
+                
+                const leaderboardRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("leaderboard");
+                const unsubscribe = leaderboardRef.onSnapshot((snapshot) => {
+                    const temp = [];
+                    snapshot.forEach((doc) => {
+                        temp.push(doc.data());
+                    });
+                    // RULE 2 ì— ë”°ë¥¸ JS ë©”ëª¨ë¦¬ ë‚´ ì •ë ¬
+                    temp.sort((a, b) => (b.score || 0) - (a.score || 0));
+                    setGlobalLeaderboard(temp.slice(0, 5));
+                }, (err) => {
+                    console.error("ëª…ì˜ˆì˜ ì „ë‹¹ êµ¬ë… ì—ëŸ¬:", err);
+                });
+
+                return () => unsubscribe();
+            }, [firebaseUser]);
 
             const evaluateNoParen = (str) => {
                 const tokens = [];
@@ -272,7 +308,7 @@
                         while (i < str.length && /[0-9]/.test(str[i])) { numStr += str[i]; i++; }
                         tokens.push(parseInt(numStr));
                     } else if (c === '-' && (tokens.length === 0 || ['+', '-', '*', '/'].includes(tokens[tokens.length - 1]))) {
-                        throw new Error("À½¼ö »ç¿ë ºÒ°¡");
+                        throw new Error("ìŒìˆ˜ ì‚¬ìš© ë¶ˆê°€");
                     } else if (['+', '-', '*', '/'].includes(c)) {
                         tokens.push(c); i++;
                     } else { i++; }
@@ -285,13 +321,13 @@
                     if (token === '*' || token === '/') {
                         const left = tempTokens.pop();
                         const right = tokens[j + 1];
-                        if (left === undefined || right === undefined) throw new Error("¹®¹ý ¿À·ù");
-                        if (left < 0 || right < 0) throw new Error("À½¼ö ¿¬»ê ºÒ°¡");
+                        if (left === undefined || right === undefined) throw new Error("ë¬¸ë²• ì˜¤ë¥˜");
+                        if (left < 0 || right < 0) throw new Error("ìŒìˆ˜ ì—°ì‚° ë¶ˆê°€");
                         if (token === '*') {
-                            if (left === 0 || right === 0) throw new Error("0 °öÇÏ±â Á¦ÇÑ");
+                            if (left === 0 || right === 0) throw new Error("0 ê³±í•˜ê¸° ì œí•œ");
                             tempTokens.push(left * right);
                         } else {
-                            if (right === 0 || left % right !== 0) throw new Error("³ª´°¼À Á¦ÇÑ");
+                            if (right === 0 || left % right !== 0) throw new Error("ë‚˜ëˆ—ì…ˆ ì œí•œ");
                             tempTokens.push(left / right);
                         }
                         j += 2;
@@ -300,18 +336,18 @@
 
                 if (tempTokens.length === 0) return 0;
                 let result = tempTokens[0];
-                if (result < 0) throw new Error("À½¼ö ¹ß»ý");
+                if (result < 0) throw new Error("ìŒìˆ˜ ë°œìƒ");
                 let k = 1;
                 while (k < tempTokens.length) {
                     const op = tempTokens[k];
                     const nextVal = tempTokens[k + 1];
-                    if (nextVal === undefined) throw new Error("¹®¹ý ¿À·ù");
-                    if (nextVal < 0) throw new Error("À½¼ö ¿¬»ê ºÒ°¡");
+                    if (nextVal === undefined) throw new Error("ë¬¸ë²• ì˜¤ë¥˜");
+                    if (nextVal < 0) throw new Error("ìŒìˆ˜ ì—°ì‚° ë¶ˆê°€");
                     if (op === '+') {
                         result += nextVal;
                     } else if (op === '-') {
                         result -= nextVal;
-                        if (result < 0) throw new Error("Áß°£ °è»ê °á°ú À½¼ö ¹ß»ý"); 
+                        if (result < 0) throw new Error("ì¤‘ê°„ ê³„ì‚° ê²°ê³¼ ìŒìˆ˜ ë°œìƒ"); 
                     }
                     k += 2;
                 }
@@ -319,25 +355,25 @@
             };
 
             const evaluateSafe = (str) => {
-                let s = str.replace(/¡¿/g, '*').replace(/¡À/g, '/');
+                let s = str.replace(/Ã—/g, '*').replace(/Ã·/g, '/');
                 const parenRegex = /\(([^()]+)\)/g;
                 let match;
                 while ((match = parenRegex.exec(s)) !== null) {
                     const subExpr = match[1];
                     const subVal = evaluateNoParen(subExpr);
-                    if (subVal < 0 || !Number.isInteger(subVal)) throw new Error("Áß°£°ª ¾ÈÀü ¹üÀ§ ÃÊ°ú");
+                    if (subVal < 0 || !Number.isInteger(subVal)) throw new Error("ì¤‘ê°„ê°’ ì•ˆì „ ë²”ìœ„ ì´ˆê³¼");
                     
                     const matchIndex = match.index;
                     const charBefore = s[matchIndex - 1];
                     const charAfter = s[matchIndex + match[0].length];
                     if (subVal === 0 && (charBefore === '*' || charAfter === '*')) {
-                        throw new Error("Æí¹ý ½Ä °¨Áö");
+                        throw new Error("íŽ¸ë²• ì‹ ê°ì§€");
                     }
                     s = s.substring(0, matchIndex) + subVal + s.substring(matchIndex + match[0].length);
                     parenRegex.lastIndex = 0;
                 }
                 const finalVal = evaluateNoParen(s);
-                if (finalVal < 0 || !Number.isInteger(finalVal)) throw new Error("ÃÖÁ¾°ª ¹üÀ§ ÃÊ°ú");
+                if (finalVal < 0 || !Number.isInteger(finalVal)) throw new Error("ìµœì¢…ê°’ ë²”ìœ„ ì´ˆê³¼");
                 return finalVal;
             };
 
@@ -380,9 +416,9 @@
                                                 const toReplace = [matches[idx1], matches[idx2]].sort((a,b) => b.idx - a.idx);
                                                 let masked = formula;
                                                 toReplace.forEach(item => {
-                                                    masked = masked.substring(0, item.idx) + "¡à" + masked.substring(item.idx + item.val.length);
+                                                    masked = masked.substring(0, item.idx) + "â–¡" + masked.substring(item.idx + item.val.length);
                                                 });
-                                                return masked.replace(/\*/g, '¡¿').replace(/\//g, '¡À');
+                                                return masked.replace(/\*/g, 'Ã—').replace(/\//g, 'Ã·');
                                             }
                                         }
                                     } catch (e) {}
@@ -391,106 +427,7 @@
                         }
                     }
                 }
-                return "¡à + ¡à - ¡à + ¡à";
-            };
-
-            const generateValidPlate = (mode) => {
-                let safety = 0;
-                while (safety < 300) {
-                    safety++;
-                    const plate = Array.from({length: 6}, () => Math.floor(Math.random() * 9) + 1);
-                    if (mode === "pro") {
-                        const hint = generateAdvancedHint(plate.slice(2));
-                        if (hint !== "¡à + ¡à - ¡à + ¡à") {
-                            return plate;
-                        }
-                    } else {
-                        return plate;
-                    }
-                }
-                return [1, 2, 1, 2, 3, 4];
-            };
-
-            const getMidHintData = () => {
-                if (!problem || problem.mode !== "mid") return null;
-                const d = problem.digits;
-                const o = problem.ops;
-                const bIdx = problem.blankIdx;
-                const tType = problem.templateType || "triple_pair";
-
-                if (tType === "triple_pair") {
-                    const hasB1 = bIdx === 0 || bIdx === 1;
-                    const hasB2 = bIdx === 2 || bIdx === 3;
-                    const hasB3 = bIdx === 4 || bIdx === 5;
-
-                    let expr1 = `(${d[0]} ${o[0]} ${d[1]})`;
-                    let expr2 = `(${d[2]} ${o[2]} ${d[3]})`;
-                    let expr3 = `(${d[4]} ${o[4]} ${d[5]})`;
-
-                    let val1 = "°è»ê ºÒ°¡", val2 = "°è»ê ºÒ°¡", val3 = "°è»ê ºÒ°¡";
-
-                    if (!hasB1) {
-                        try { val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}`); } catch (e) { val1 = "°è»ê ºÒ°¡"; }
-                    }
-                    if (!hasB2) {
-                        try { val2 = evaluateSafe(`${d[2]}${o[2]}${d[3]}`); } catch (e) { val2 = "°è»ê ºÒ°¡"; }
-                    }
-                    if (!hasB3) {
-                        try { val3 = evaluateSafe(`${d[4]}${o[4]}${d[5]}`); } catch (e) { val3 = "°è»ê ºÒ°¡"; }
-                    }
-
-                    return { templateType: tType, expr1, expr2, expr3, val1, val2, val3, op1: o[1], op3: o[3], target: problem.target, hasB1, hasB2, hasB3 };
-                }
-
-                if (tType === "double_triple") {
-                    const hasB1 = bIdx === 0 || bIdx === 1 || bIdx === 2;
-                    const hasB2 = bIdx === 3 || bIdx === 4 || bIdx === 5;
-
-                    let expr1 = `(${d[0]} ${o[0]} ${d[1]} ${o[1]} ${d[2]})`;
-                    let expr2 = `(${d[3]} ${o[3]} ${d[4]} ${o[4]} ${d[5]})`;
-
-                    let val1 = "°è»ê ºÒ°¡", val2 = "°è»ê ºÒ°¡";
-
-                    if (!hasB1) {
-                        try { val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}${o[1]}${d[2]}`); } catch (e) { val1 = "°è»ê ºÒ°¡"; }
-                    }
-                    if (!hasB2) {
-                        try { val2 = evaluateSafe(`${d[3]}${o[3]}${d[4]}${o[4]}${d[5]}`); } catch (e) { val2 = "°è»ê ºÒ°¡"; }
-                    }
-
-                    return { templateType: tType, expr1, expr2, val1, val2, op2: o[2], target: problem.target, hasB1, hasB2 };
-                }
-
-                if (tType === "flat_mixed") {
-                    const hintsList = [];
-                    const pair1_hasB = bIdx === 0 || bIdx === 1;
-                    if (!pair1_hasB && (o[0] === "¡¿" || o[0] === "¡À")) {
-                        try {
-                            const val = evaluateSafe(`${d[0]}${o[0]}${d[1]}`);
-                            hintsList.push({ expr: `${d[0]} ${o[0]} ${d[1]}`, val });
-                        } catch(e) {}
-                    }
-                    
-                    const pair2_hasB = bIdx === 2 || bIdx === 3;
-                    if (!pair2_hasB && (o[2] === "¡¿" || o[2] === "¡À")) {
-                        try {
-                            const val = evaluateSafe(`${d[2]}${o[2]}${d[3]}`);
-                            hintsList.push({ expr: `${d[2]} ${o[2]} ${d[3]}`, val });
-                        } catch(e) {}
-                    }
-
-                    const pair3_hasB = bIdx === 4 || bIdx === 5;
-                    if (!pair3_hasB && (o[4] === "¡¿" || o[4] === "¡À")) {
-                        try {
-                            const val = evaluateSafe(`${d[4]}${o[4]}${d[5]}`);
-                            hintsList.push({ expr: `${d[4]} ${o[4]}${d[5]}`, val });
-                        } catch(e) {}
-                    }
-
-                    return { templateType: tType, hintsList, target: problem.target };
-                }
-
-                return null;
+                return "â–¡ + â–¡ - â–¡ + â–¡";
             };
 
             const generateProblemForCar = (mode, plateDigits) => {
@@ -511,7 +448,7 @@
                     while(!success && safetyCounter < 600) { 
                         safetyCounter++;
                         const tType = templatesList[Math.floor(Math.random() * templatesList.length)];
-                        const availableOps = ["+", "-", "¡¿", "¡À"];
+                        const availableOps = ["+", "-", "Ã—", "Ã·"];
                         
                         ops = [
                             availableOps[Math.floor(Math.random()*4)], 
@@ -530,13 +467,13 @@
                                 const val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}`);
                                 const val2 = evaluateSafe(`${d[2]}${o[2]}${d[3]}`);
                                 const val3 = evaluateSafe(`${d[4]}${o[4]}${d[5]}`);
-                                if (val1 < 0 || val2 < 0 || val3 < 0) throw new Error("À½¼ö");
+                                if (val1 < 0 || val2 < 0 || val3 < 0) throw new Error("ìŒìˆ˜");
 
                                 formula = `(${d[0]}${o[0]}${d[1]})${o[1]}(${d[2]}${o[2]}${d[3]})${o[3]}(${d[4]}${o[4]}${d[5]})`;
                             } else if (tType === "double_triple") {
                                 const val1 = evaluateSafe(`${d[0]}${o[0]}${d[1]}${o[1]}${d[2]}`);
                                 const val2 = evaluateSafe(`${d[3]}${o[3]}${d[4]}${o[4]}${d[5]}`);
-                                if (val1 < 0 || val2 < 0) throw new Error("À½¼ö");
+                                if (val1 < 0 || val2 < 0) throw new Error("ìŒìˆ˜");
 
                                 formula = `(${d[0]}${o[0]}${d[1]}${o[1]}${d[2]})${o[2]}(${d[3]}${o[3]}${d[4]}${o[4]}${d[5]})`;
                             } else if (tType === "flat_mixed") {
@@ -564,7 +501,7 @@
                     let safetyCounter = 0;
                     while(!success && safetyCounter < 300) {
                         safetyCounter++;
-                        const availableOps = ["+", "-", "¡¿", "¡À"];
+                        const availableOps = ["+", "-", "Ã—", "Ã·"];
                         ops = [availableOps[Math.floor(Math.random()*4)], availableOps[Math.floor(Math.random()*4)], availableOps[Math.floor(Math.random()*4)]];
                         
                         try {
@@ -587,86 +524,83 @@
                 setIsProblemSolved(false);
                 setProblemTimer(0);
                 setShowHintModal(false);
-                setFeedback({ text: mode === "pro" ? "¼ýÀÚ 4°³¸¦ ¸ðµÎ »ç¿ëÇØ 0À» ¸¸µå¼¼¿ä!" : "ºóÄ­¿¡ ¾Ë¸ÂÀº ¼ýÀÚ¸¦ Àû°í ¿£ÅÍ ¶Ç´Â È®ÀÎÀ» ´©¸£¼¼¿ä!", type: "info" });
+                setFeedback({ text: mode === "pro" ? "ìˆ«ìž 4ê°œë¥¼ ëª¨ë‘ ì‚¬ìš©í•´ 0ì„ ë§Œë“œì„¸ìš”!" : "ë¹ˆì¹¸ì— ì•Œë§žì€ ìˆ«ìžë¥¼ ì ê³  ì—”í„° ë˜ëŠ” í™•ì¸ì„ ëˆ„ë¥´ì„¸ìš”!", type: "info" });
             };
 
-            // ½Ç½Ã°£ ±³»ç¿ë ¹æ ¸¸µé±â °³¼³ ·ÎÁ÷
-            const handleCreateSession = async () => {
-                const randomPin = Math.floor(100000 + Math.random() * 900000).toString(); // 6ÀÚ¸® ·£´ý ÇÉ
-                setRoomPin(randomPin);
+            // Gemini API í™œìš© ìˆ˜í•™ íŠœí„° í”¼ë“œë°± í˜¸ì¶œ (Exponential Backoff ë‚´ìž¥)
+            const handleAskAITutor = async () => {
+                if (!problem) return;
+                setAiLoading(true);
+                setAiHintText("");
+                setShowAiModal(true);
 
-                if (isFirebaseOnline) {
+                const currentFormula = problem.mode === "beginner" 
+                    ? `${problem.digits[0]} ${problem.ops[0]} ${problem.digits[1]} ${problem.ops[1]} ${problem.digits[2]} ${problem.ops[2]} ${problem.digits[3]} = ?`
+                    : problem.mode === "mid"
+                    ? `ë¹„ì–´ìžˆëŠ” ë²ˆí˜¸íŒ ê³„ì‚°ì‹: ê´„í˜¸ êµ¬ì¡°í˜• ìˆ˜ì‹ì„ ì™„ì„±í•˜ì—¬ íƒ€ê²Ÿê°’ ${problem.target}ì„ ë„ì¶œí•˜ëŠ” ë¹ˆì¹¸(ìˆ˜ì‹ ? ìžë¦¬) ì°¾ê¸°`
+                    : `ì£¼ì–´ì§„ ìˆ«ìž ì¹´ë“œ ${problem.digits.join(", ")}ì„ ì‚¬ì¹™ì—°ì‚°ê³¼ ê´„í˜¸ë¡œ ë¬¶ì–´ ìµœì¢…ê°’ 0ì„ ë§Œë“œëŠ” í¼ì¦`;
+
+                const systemPrompt = "ë„ˆëŠ” ì´ˆë“±í•™êµ 5í•™ë…„ í•™ìƒë“¤ì„ ìœ„í•œ ìƒëƒ¥í•˜ê³  ê²©ë ¤ ë„˜ì¹˜ëŠ” AI ìˆ˜í•™ ë©˜í†  ì„ ìƒë‹˜ì´ì•¼. í•™ìƒë“¤ì´ ê³ ì†ë„ë¡œ ìˆ˜í•™ì™• ê²Œìž„ì—ì„œ í˜¼í•©ê³„ì‚° ë¬¸ì œë¥¼ í’€ ë•Œ ìˆ˜í•™ ì›ë¦¬ë¥¼ ê°€ë¥´ì³ ì¤˜ì•¼ í•´. ì ˆëŒ€ ì •ë‹µì„ ë°”ë¡œ ë§í•´ì£¼ì§€ ë§ê³ , ê´„í˜¸ê°€ ìžˆëŠ”ì§€, ê³±ì…ˆê³¼ ë‚˜ëˆ—ì…ˆì„ ë§ì…ˆ/ëº„ì…ˆë³´ë‹¤ ì™œ ë¨¼ì € ê³„ì‚°í•´ì•¼ í•˜ëŠ”ì§€ ë“± ìˆ˜ì‹ ìš°ì„ ìˆœìœ„ë¥¼ ì¹œê·¼í•œ í•œêµ­ì–´ë¡œ í¥ë¯¸ë¡­ê²Œ ì„¤ëª…í•´ ì¤˜. ì§§ê³  í•œëˆˆì— ë“¤ì–´ì˜¤ëŠ” ë¬¸ìž¥ìœ¼ë¡œ ìž‘ì„±í•˜ê³  ì´ëª¨í‹°ì½˜ì„ ì ê·¹ ì‚¬ìš©í•´ì¤˜.";
+                const userQuery = `í˜„ìž¬ í•™ìƒì´ í’€ê³  ìžˆëŠ” ìˆ˜ì‹ ìƒí™©: ${currentFormula}. 5í•™ë…„ í•™ìƒì˜ ëˆˆë†’ì´ì— ë§žì¶° ì§ì ‘ì ì¸ ë‹µì€ ë¹„ë°€ë¡œ í•˜ë˜, ì‹ì„ í‘¸ëŠ” ì›ë¦¬ì™€ ìš°ì„ ìˆœìœ„ì— ëŒ€í•œ ë§žì¶¤í˜• ížŒíŠ¸ë¥¼ 3ì¤„ ë‚´ì™¸ë¡œ ì œì•ˆí•´ ì¤˜!`;
+
+                const apiKey = ""; // Runtime í™˜ê²½ ìžë™ ì£¼ìž…
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                let delay = 1000;
+                let success = false;
+                let aiResponse = "";
+
+                for (let i = 0; i < 5; i++) {
                     try {
-                        await db.collection("sessions").doc(randomPin).set({
-                            mode: teacherModeSelected,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            active: true
+                        const response = await fetch(url, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload)
                         });
-                        console.log("Firebase Session Created:", randomPin);
-                    } catch (e) {
-                        console.error("Firebase Room Create Error:", e);
+                        if (response.ok) {
+                            const result = await response.json();
+                            aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || "ì—°ì‚°ì˜ ê·œì¹™ì„ ìž˜ ì°¾ì•„ë³´ì„¸ìš”! í™”ì´íŒ…!";
+                            success = true;
+                            break;
+                        }
+                    } catch (err) {
+                        // Fail silently for backoff retry
                     }
-                } else {
-                    // ¿ÀÇÁ¶óÀÎ °¡»ó ¸ðµå: ½Ã¹Ä·¹ÀÌ¼Ç¿ë µ¥ÀÌÅÍ ÃÊ±âÈ­
-                    console.log("Offline Mock Session Created:", randomPin);
-                    setStudentList([
-                        { nickname: "°¡»ó_¹Î¼ö(AI)", score: 0, solved: 0 },
-                        { nickname: "°¡»ó_ÁØÈ£(AI)", score: 0, solved: 0 }
-                    ]);
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
                 }
-                setView("teacherDashboard");
+
+                if (success) {
+                    setAiHintText(aiResponse);
+                } else {
+                    setAiHintText("ì•—! ì£¼í–‰ ì¤‘ í„°ë„ì„ ì§€ë‚˜ì„œ AI íŠœí„°ì™€ì˜ ë¬´ì„  ì—°ê²°ì´ ë¶ˆì•ˆì •í•´ìš”. ìˆ˜ì‹ì˜ ìš°ì„ ìˆœìœ„(ê´„í˜¸ ë¨¼ì € âž” ê³±ì…ˆ/ë‚˜ëˆ—ì…ˆ âž” ë§ì…ˆ/ëº„ì…ˆ)ë¥¼ ë– ì˜¬ë ¤ë³´ì„¸ìš”!");
+                }
+                setAiLoading(false);
             };
 
-            // ±³»ç¿ë ½Ç½Ã°£ ½ºÆ®¸®¹Ö ¸ð´ÏÅÍ¸µ ¼ö½Å (onSnapshot È°¼ºÈ­)
-            useEffect(() => {
-                if (view !== "teacherDashboard" || !roomPin) return;
-
-                if (isFirebaseOnline) {
-                    const unsubscribe = db.collection("sessions").doc(roomPin).collection("students")
-                        .onSnapshot((snapshot) => {
-                            const list = [];
-                            snapshot.forEach((doc) => {
-                                list.push(doc.data());
-                            });
-                            setStudentList(list);
-                        }, (err) => {
-                            console.error("Listener Error:", err);
-                        });
-                    return () => unsubscribe();
-                } else {
-                    // ¿ÀÇÁ¶óÀÎ °¡»ó ½Ã¹Ä·¹ÀÌÅÍ: 4ÃÊ¸¶´Ù °¡»ó ÇÐ»ýµéÀÌ ³­ÀÌµµ¿¡ ¸ÂÃç µæÁ¡ÇÔ
-                    const interval = setInterval(() => {
-                        setStudentList(prev => prev.map(student => {
-                            const solvedAdd = Math.random() > 0.4 ? 1 : 0;
-                            const scoreAdd = solvedAdd * (teacherModeSelected === "pro" ? 50 : 10);
-                            return {
-                                ...student,
-                                score: student.score + scoreAdd,
-                                solved: student.solved + solvedAdd
-                            };
-                        }));
-                    }, 4000);
-                    return () => clearInterval(interval);
-                }
-            }, [view, roomPin]);
-
-            // ÇÐ»ý¿ë ½Ç½Ã°£ ÇÉ¹øÈ£ ÀÔÀå Ã³¸®
+            // í•™ìƒìš© ì‹¤ì‹œê°„ í•€ë²ˆí˜¸ ìž…ìž¥ ì²˜ë¦¬ (RULE 1, 3 ì¤€ìˆ˜)
             const handleStudentJoin = async () => {
                 if (!nickname.trim()) {
-                    setNicknameError("ÀÌ¸§À» ÀÔ·ÂÇØ ÁÖ¼¼¿ä!");
+                    setNicknameError("ì´ë¦„ì„ ìž…ë ¥í•´ ì£¼ì„¸ìš”!");
                     return;
                 }
                 if (!pinInput.trim()) {
-                    setNicknameError("¹æ ÇÉ¹øÈ£¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä!");
+                    setNicknameError("ë°© í•€ë²ˆí˜¸ë¥¼ ìž…ë ¥í•´ ì£¼ì„¸ìš”!");
                     return;
                 }
                 setNicknameError("");
 
-                if (isFirebaseOnline) {
+                if (isFirebaseOnline && firebaseUser) {
                     try {
-                        const roomDoc = await db.collection("sessions").doc(pinInput).get();
+                        const sessionDocRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("sessions").doc(pinInput);
+                        const roomDoc = await sessionDocRef.get();
+                        
                         if (!roomDoc.exists) {
-                            setNicknameError("À¯È¿ÇÏÁö ¾ÊÀº ÇÉ¹øÈ£ÀÔ´Ï´Ù!");
+                            setNicknameError("ìœ íš¨í•˜ì§€ ì•Šì€ í•€ë²ˆí˜¸ìž…ë‹ˆë‹¤!");
                             return;
                         }
                         const roomData = roomDoc.data();
@@ -675,24 +609,23 @@
                         setGameMode(selectedMode);
                         setRoomPin(pinInput);
 
-                        // ÇÐ»ý Àü¿ë µ¥ÀÌÅÍ µî·Ï
-                        await db.collection("sessions").doc(pinInput).collection("students").doc(nickname).set({
+                        // í•™ìƒ ì „ìš© ë°ì´í„° ì‹¤ì‹œê°„ ì„¸ì…˜ ë“±ë¡ (RULE 1 ì¤€ìˆ˜)
+                        await sessionDocRef.collection("students").doc(nickname).set({
                             nickname: nickname,
                             score: 0,
                             solved: 0,
                             lastActive: firebase.firestore.FieldValue.serverTimestamp()
                         });
 
-                        // ¼¼¼Ç Å¸ÀÌ¸Ó ÃÊ±âÈ­ ÈÄ °ÔÀÓ ÁøÀÔ
                         setTimer(0);
                         setScore(0);
                         startDrivingPhysics(selectedMode);
                     } catch (e) {
                         console.error("Join Error:", e);
-                        setNicknameError("³×Æ®¿öÅ© ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù.");
+                        setNicknameError("ë„¤íŠ¸ì›Œí¬ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤.");
                     }
                 } else {
-                    // ¿ÀÇÁ¶óÀÎ °¡»ó Å×½ºÆ® È¯°æ Á¦°ø
+                    // ì˜¤í”„ë¼ì¸ ê°€ìƒ í…ŒìŠ¤íŠ¸ í™˜ê²½ ì œê³µ
                     setGameMode("beginner");
                     setRoomPin(pinInput);
                     setTimer(0);
@@ -702,7 +635,6 @@
             };
 
             const startDrivingPhysics = (selectedMode) => {
-                setSpeed(0);
                 setKeysPressed({ up: false, left: false, right: false });
 
                 drivingState.current = {
@@ -723,11 +655,11 @@
                 setView("driving");
             };
 
-            // ÇÐ»ý µæÁ¡ ½Ã ½Ç½Ã°£ Á¡¼ö ´ë½Ãº¸µå ¿¬µ¿ ¾÷·Îµå
+            // í•™ìƒ ë“ì  ì‹œ ì‹¤ì‹œê°„ ì ìˆ˜ ëŒ€ì‹œë³´ë“œ ì—°ë™ ì—…ë¡œë“œ (RULE 1 ì¤€ìˆ˜)
             const syncStudentScore = async (newScore, newSolved) => {
-                if (isFirebaseOnline && roomPin && nickname) {
+                if (isFirebaseOnline && roomPin && nickname && firebaseUser) {
                     try {
-                        await db.collection("sessions").doc(roomPin).collection("students").doc(nickname).update({
+                        await db.collection("artifacts").doc(appId).collection("public").doc("data").collection("sessions").doc(roomPin).collection("students").doc(nickname).update({
                             score: newScore,
                             solved: newSolved,
                             lastActive: firebase.firestore.FieldValue.serverTimestamp()
@@ -738,7 +670,50 @@
                 }
             };
 
-            // ½Ç½Ã°£ 2D Canvas ÁÖÇà ¹°¸® ¾÷µ¥ÀÌÆ® ¹× ·»´õ¸µ ·çÇÁ (solving ¸ðµå¿¡¼­µµ ÀÛµ¿ À¯Áö)
+            // ê²Œìž„ ê·¸ë§Œí•˜ê¸° ì‹œ ëª…ì˜ˆì˜ ì „ë‹¹ ì ìˆ˜ ì œì¶œ/ì„¸ì´ë¸Œ ì œì–´
+            const handleGameQuit = () => {
+                if (score > 0) {
+                    setSaveScoreName(nickname === "ë„ì „ìž" ? "" : nickname);
+                    setShowSaveScoreModal(true);
+                } else {
+                    setView("main");
+                }
+            };
+
+            // ëª…ì˜ˆì˜ ì „ë‹¹ ì‹¤ì œ ëž­í‚¹ ì €ìž¥ (RULE 1, 3 ì¤€ìˆ˜)
+            const handleSaveLeaderboardScore = async () => {
+                const finalName = saveScoreName.trim();
+                if (!finalName) return;
+
+                if (isFirebaseOnline && firebaseUser) {
+                    try {
+                        const leaderboardDocRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("leaderboard").doc(finalName);
+                        
+                        // ê¸°ì¡´ ì ìˆ˜ê°€ ì¡´ìž¬í•  ì‹œ í•©ì‚° í˜¹ì€ ìµœê³  ì ìˆ˜ ë³‘í•© ë¹„êµ í›„ ì €ìž¥
+                        const existingDoc = await leaderboardDocRef.get();
+                        let finalScore = score;
+                        if (existingDoc.exists) {
+                            const prevScore = existingDoc.data().score || 0;
+                            if (prevScore > score) {
+                                finalScore = prevScore; // ìµœê³ ê¸°ë¡ ë³´ì¡´
+                            }
+                        }
+
+                        await leaderboardDocRef.set({
+                            nickname: finalName,
+                            score: finalScore,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("ëª…ì˜ˆì˜ ì „ë‹¹ ì €ìž¥ ì„±ê³µ!");
+                    } catch (e) {
+                        console.error("Leaderboard Write Error:", e);
+                    }
+                }
+                setShowSaveScoreModal(false);
+                setView("main");
+            };
+
+            // ì‹¤ì‹œê°„ 2D Canvas ì£¼í–‰ ë¬¼ë¦¬ ì—…ë°ì´íŠ¸ ë° ë Œë”ë§ ë£¨í”„
             useEffect(() => {
                 if (view !== "driving" && view !== "solving") {
                     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -812,16 +787,16 @@
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                    // 1. µµ·Î ¹è°æ ±×¸®±â (¾Æ½ºÆÈÆ®)
+                    // 1. ë„ë¡œ ë°°ê²½ ê·¸ë¦¬ê¸° (ì•„ìŠ¤íŒ”íŠ¸)
                     ctx.fillStyle = "#1e293b";
                     ctx.fillRect(50, 0, canvas.width - 100, canvas.height);
 
-                    // 2. µµ·Î ¼ñ´õ ¶óÀÎ (°¡ÀåÀÚ¸® ¼±)
+                    // 2. ë„ë¡œ ìˆ„ë” ë¼ì¸ (ê°€ìž¥ìžë¦¬ ì„ )
                     ctx.fillStyle = "#eab308";
                     ctx.fillRect(45, 0, 5, canvas.height);
                     ctx.fillRect(canvas.width - 50, 0, 5, canvas.height);
 
-                    // 3. Â÷¼± ±×¸®±â
+                    // 3. ì°¨ì„  ê·¸ë¦¬ê¸°
                     ctx.fillStyle = "#ffffff";
                     const laneX1 = 150;
                     const laneX2 = 250;
@@ -830,7 +805,7 @@
                         ctx.fillRect(laneX2, y, 4, 30);
                     }
 
-                    // 4. Á¤ÁöÇØ ÀÖ´Â ¾ÕÂ÷ ±×¸®±â
+                    // 4. ì •ì§€í•´ ìžˆëŠ” ì•žì°¨ ê·¸ë¦¬ê¸°
                     if (state.targetCarSpawned) {
                         const tcX = 200 - 30; 
                         const tcY = state.targetCarY;
@@ -856,11 +831,11 @@
                         ctx.fillStyle = "#000000";
                         ctx.font = "bold 6px monospace";
                         ctx.textAlign = "center";
-                        const plateStr = state.targetCarPlate.slice(0,2).join('') + "°¡" + state.targetCarPlate.slice(2).join('');
+                        const plateStr = state.targetCarPlate.slice(0,2).join('') + "ê°€" + state.targetCarPlate.slice(2).join('');
                         ctx.fillText(plateStr, tcX + 30, tcY + 75);
                     }
 
-                    // 5. ÇÃ·¹ÀÌ¾î ÀÚµ¿Â÷ ±×¸®±â
+                    // 5. í”Œë ˆì´ì–´ ìžë™ì°¨ ê·¸ë¦¬ê¸°
                     const pX = state.playerX - 30;
                     const pY = state.playerY;
 
@@ -909,16 +884,15 @@
 
                 animationFrameRef.current = requestAnimationFrame(updatePhysicsAndDraw);
                 return () => cancelAnimationFrame(animationFrameRef.current);
-            }, [view, gameMode]); // React »óÅÂ speed/isAcceleratingÀÇ ÀÇÁ¸¼º Á¦°ÅÇÏ¿© Å°º¸µå ½º·¹µå ¸ÔÅë Çö»ó ¿µ±¸ ÇØ°á
+            }, [view, gameMode]);
 
-            // Å°º¸µå ÀÔ·ÂÀ» ¸®½¼ÇÏ´Â ÁÖÇà ÄÁÆ®·Ñ·¯ (¸ÔÅë ¹®Á¦ ¿Ïº® º¸°­)
+            // í‚¤ë³´ë“œ ìž…ë ¥ì„ ë¦¬ìŠ¨í•˜ëŠ” ì£¼í–‰ ì»¨íŠ¸ë¡¤ëŸ¬
             useEffect(() => {
                 if (view !== "driving" && view !== "solving") return;
 
                 const handleKeyDown = (e) => {
                     if (view === "solving") return; 
 
-                    // QoL °³¼±: ¹æÇâÅ°·Î ÆäÀÌÁö°¡ ¾Æ·¡·Î ½ºÅ©·ÑµÇ°Å³ª ¿òÁ÷ÀÌ´Â Çö»ó ¹æÁö
                     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
                         e.preventDefault();
                     }
@@ -1025,13 +999,13 @@
                 
                 if (val === targetToMatch) {
                     setIsProblemSolved(true); 
-                    setFeedback({ text: "ÈÇ¸¢ÇÕ´Ï´Ù! Á¤´äÀÔ´Ï´Ù! ?? ºÎ½ºÅÍ °¡µ¿!", type: "success" });
+                    setFeedback({ text: "í›Œë¥­í•©ë‹ˆë‹¤! ì •ë‹µìž…ë‹ˆë‹¤! ðŸŽ‰ ë¶€ìŠ¤í„° ê°€ë™!", type: "success" });
                     
                     const nextScore = score + 10;
                     const nextSolved = Math.floor(nextScore / 10);
                     setScore(nextScore);
 
-                    // ½Ç½Ã°£ Å¬¶ó¿ìµå DB ´ë½Ãº¸µå µæÁ¡ ¾÷·Îµå
+                    // ì‹¤ì‹œê°„ í´ë¼ìš°ë“œ DB ëŒ€ì‹œë³´ë“œ ë“ì  ì—…ë¡œë“œ
                     syncStudentScore(nextScore, nextSolved);
 
                     setTimeout(() => {
@@ -1053,7 +1027,7 @@
 
                     }, 1200);
                 } else {
-                    setFeedback({ text: "¾Æ½¬¿ö¿ä! ¼ö½ÄÀÇ °è»ê ¼ø¼­¸¦ ´Ù½Ã »ìÆìº¼±î¿ä?", type: "error" });
+                    setFeedback({ text: "ì•„ì‰¬ì›Œìš”! ìˆ˜ì‹ì˜ ê³„ì‚° ìˆœì„œë¥¼ ë‹¤ì‹œ ì‚´íŽ´ë³¼ê¹Œìš”?", type: "error" });
                 }
             };
 
@@ -1066,22 +1040,22 @@
                 if (isProblemSolved) return;
 
                 if (expression.filter(e => e.type === 'digit').length !== 4) {
-                    setFeedback({ text: "¹øÈ£ÆÇÀÇ ¼ýÀÚ 4°³¸¦ ºüÁü¾øÀÌ ¸ðµÎ »ç¿ëÇØ¾ß ÇÕ´Ï´Ù!", type: "error" });
+                    setFeedback({ text: "ë²ˆí˜¸íŒì˜ ìˆ«ìž 4ê°œë¥¼ ë¹ ì§ì—†ì´ ëª¨ë‘ ì‚¬ìš©í•´ì•¼ í•©ë‹ˆë‹¤!", type: "error" });
                     return;
                 }
                 
-                const str = expression.map(e => e.value).join('').replace(/¡¿/g, '*').replace(/¡À/g, '/');
+                const str = expression.map(e => e.value).join('').replace(/Ã—/g, '*').replace(/Ã·/g, '/');
                 try {
                     const result = evaluateSafe(str);
                     if (result === 0) {
                         setIsProblemSolved(true); 
-                        setFeedback({ text: "¿Ïº®ÇØ¿ä! ¾Æ¸§´Ù¿î ¼ö½ÄÀ¸·Î 0À» ¸¸µé¾ú½À´Ï´Ù! ?? ºÎ½ºÅÍ °¡µ¿!", type: "success" });
+                        setFeedback({ text: "ì™„ë²½í•´ìš”! ì•„ë¦„ë‹¤ìš´ ìˆ˜ì‹ìœ¼ë¡œ 0ì„ ë§Œë“¤ì—ˆìŠµë‹ˆë‹¤! ðŸ† ë¶€ìŠ¤í„° ê°€ë™!", type: "success" });
                         
                         const nextScore = score + 50;
                         const nextSolved = Math.floor(nextScore / 50);
                         setScore(nextScore);
 
-                        // ±³»ç °ü¸® µµ±¸ ½Ç½Ã°£ ½ÌÅ©¾÷
+                        // êµì‚¬ ê´€ë¦¬ ë„êµ¬ ì‹¤ì‹œê°„ ì‹±í¬ì—…
                         syncStudentScore(nextScore, nextSolved);
 
                         setTimeout(() => {
@@ -1103,53 +1077,83 @@
 
                         }, 2000);
                     } else { 
-                        setFeedback({ text: `°è»ê °á°ú°¡ ${result}ÀÔ´Ï´Ù. ´Ù½Ã ÇÑ ¹ø 0À» ¸¸µé¾î º¸¼¼¿ä!`, type: "error" }); 
+                        setFeedback({ text: `ê³„ì‚° ê²°ê³¼ê°€ ${result}ìž…ë‹ˆë‹¤. ë‹¤ì‹œ í•œ ë²ˆ 0ì„ ë§Œë“¤ì–´ ë³´ì„¸ìš”!`, type: "error" }); 
                     }
                 } catch(e) { 
-                    setFeedback({ text: "°è»ê½ÄÀÌ ¿Ã¹Ù¸£Áö ¾Ê½À´Ï´Ù. °ýÈ£ Â¦ÀÌ³ª ºÎÈ£¸¦ È®ÀÎÇØ ÁÖ¼¼¿ä!", type: "error" });
+                    setFeedback({ text: "ê³„ì‚°ì‹ì´ ì˜¬ë°”ë¥´ì§€ ì•ŠìŠµë‹ˆë‹¤. ê´„í˜¸ ì§ì´ë‚˜ ë¶€í˜¸ë¥¼ í™•ì¸í•´ ì£¼ì„¸ìš”!", type: "error" });
                 }
             };
 
             const startSingleMode = (mode) => {
-                // ÇÇµå¹é ¹Ý¿µ: ÃÊ±â ¸ÞÀÎ È­¸é ´Ð³×ÀÓ ¿ä±¸ Á¦°Å ¹× ÀÚµ¿ 'µµÀüÀÚ' ´Ð³×ÀÓ ÇÒ´ç
-                setNickname("µµÀüÀÚ");
+                setNickname("ë„ì „ìž");
                 setGameMode(mode);
-                setRoomPin(""); // È¥ÀÚÇÏ±âÀÌ¹Ç·Î PIN ¼¼¼Ç ºñ¿ò
+                setRoomPin(""); 
                 setScore(0);
                 setTimer(0);
+                setShowSingleModes(false); 
                 startDrivingPhysics(mode);
             };
 
             if (view === "main") return (
                 <div className="min-h-screen flex flex-col md:flex-row items-center justify-center p-8 gap-16 bg-sky-50 relative overflow-hidden">
-                    <div className="flex-1 text-center md:text-left z-10 space-y-8">
-                        <h1 className="text-7xl md:text-[9rem] font-title text-indigo-950 tracking-tighter leading-none drop-shadow-md">
-                            °í¼Óµµ·Î<br/><span className="text-sky-500">¼öÇÐ¿Õ</span>
+                    <div className="flex-1 text-center md:text-left z-10 space-y-6">
+                        <h1 className="text-7xl md:text-[8rem] font-title text-indigo-950 tracking-tighter leading-none drop-shadow-md">
+                            ê³ ì†ë„ë¡œ<br/><span className="text-sky-500">ìˆ˜í•™ì™•</span>
                         </h1>
-                        <p className="text-indigo-600 text-xl font-bold italic">¡°±æ À§¿¡¼­ ½ºÃÄ Áö³ª´Â ¼ýÀÚ·Î Çª´Â Àç¹ÌÀÖ´Â ¼öÇÐ ±³½Ç¡±</p>
+                        <p className="text-indigo-600 text-xl font-bold italic">â€œê¸¸ ìœ„ì—ì„œ ìŠ¤ì³ ì§€ë‚˜ëŠ” ìˆ«ìžë¡œ í‘¸ëŠ” ìž¬ë¯¸ìžˆëŠ” ìˆ˜í•™ êµì‹¤â€</p>
+                        
+                        {/* ì‹¤ì‹œê°„ ëˆ„ì  ëª…ì˜ˆì˜ ì „ë‹¹ (Persistent Leaderboard) ì¹´ë“œë·° */}
+                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-[32px] border border-sky-100 max-w-md shadow-md scale-in mt-4">
+                            <h3 className="text-md font-black text-indigo-950 mb-3 flex items-center gap-2">
+                                <span>ðŸ† ì‹¤ì‹œê°„ ì „êµ ëª…ì˜ˆì˜ ì „ë‹¹</span>
+                                <span className="bg-sky-100 text-sky-600 text-[10px] px-2.5 py-0.5 rounded-full font-bold">TOP 5</span>
+                            </h3>
+                            <div className="divide-y divide-sky-100/60">
+                                {globalLeaderboard.length === 0 ? (
+                                    <p className="text-xs text-slate-400 py-3 text-center">ì²« ëª…ì˜ˆì˜ ì „ë‹¹ ì£¼ì¸ê³µì— ë„ì „í•´ë³´ì„¸ìš”!</p>
+                                ) : (
+                                    globalLeaderboard.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center py-2 text-sm">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? 'bg-yellow-400 text-white' : idx === 1 ? 'bg-slate-300 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-sky-100 text-sky-700'}`}>{idx + 1}</span>
+                                                <span className="font-bold text-slate-700">{item.nickname}</span>
+                                            </div>
+                                            <span className="font-black text-sky-600 font-mono">{item.score} ì </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex-1 w-full max-w-sm space-y-6 z-10 bg-white p-6 rounded-[40px] border border-sky-100 shadow-xl">
-                        {/* 1. ±³»ç¿ë °ü¸® Æ÷ÅÐ ¹öÆ° */}
+                        {/* 1. êµì‚¬ìš© ê´€ë¦¬ í¬í„¸ ë²„íŠ¼ */}
                         <div className="border-b border-sky-100 pb-4">
-                            <p className="text-slate-500 text-xs font-bold mb-2">±³½Ç¿ë Á¦¾î ¸Þ´º</p>
-                            <button onClick={() => setView("teacherSetup")} className="w-full p-5 bg-sky-500 hover:bg-sky-600 rounded-[28px] btn-3d font-black text-xl text-white">?? ±³»ç¿ë ´ë½Ãº¸µå °³¼³</button>
+                            <p className="text-slate-500 text-xs font-bold mb-2">êµì‹¤ìš© ì œì–´ ë©”ë‰´</p>
+                            <button onClick={() => setView("teacherSetup")} className="w-full p-5 bg-sky-500 hover:bg-sky-600 rounded-[28px] btn-3d font-black text-xl text-white">ðŸ« êµì‚¬ìš© ëŒ€ì‹œë³´ë“œ ê°œì„¤</button>
                         </div>
 
-                        {/* 2. ÇÐ»ý¿ë ÀÔÀå Æ÷ÅÐ ¹öÆ° */}
+                        {/* 2. í•™ìƒìš© ìž…ìž¥ í¬í„¸ ë²„íŠ¼ */}
                         <div className="border-b border-sky-100 pb-4">
-                            <p className="text-slate-500 text-xs font-bold mb-2">½Ç½Ã°£ ¼ö¾÷ Âü°¡</p>
-                            <button onClick={() => setView("studentJoin")} className="w-full p-5 bg-yellow-400 hover:bg-yellow-500 rounded-[28px] btn-3d font-black text-xl text-slate-900">?? ÇÐ»ý¿ë ½Ç½Ã°£ ÀÔÀå</button>
+                            <p className="text-slate-500 text-xs font-bold mb-2">ì‹¤ì‹œê°„ ìˆ˜ì—… ì°¸ê°€</p>
+                            <button onClick={() => setView("studentJoin")} className="w-full p-5 bg-yellow-400 hover:bg-yellow-500 rounded-[28px] btn-3d font-black text-xl text-slate-900">ðŸ“± í•™ìƒìš© ì‹¤ì‹œê°„ ìž…ìž¥</button>
                         </div>
 
-                        {/* 3. È¥ÀÚ ÇÏ±â ¸ðµå */}
+                        {/* 3. í˜¼ìž í•˜ê¸° ëª¨ë“œ */}
                         <div>
-                            <p className="text-slate-500 text-xs font-bold mb-2">È¥ÀÚ µµÀüÇÏ±â</p>
-                            <div className="grid grid-cols-3 gap-2">
-                                <button onClick={() => startSingleMode("beginner")} className="p-3 bg-emerald-500 hover:bg-emerald-600 rounded-2xl font-black text-sm text-white">ÃÊ±Þ</button>
-                                <button onClick={() => startSingleMode("mid")} className="p-3 bg-orange-500 hover:bg-orange-600 rounded-2xl font-black text-sm text-white">Áß±Þ</button>
-                                <button onClick={() => startSingleMode("pro")} className="p-3 bg-rose-50 hover:bg-rose-600 rounded-2xl font-black text-sm text-white">°í±Þ</button>
-                            </div>
+                            <p className="text-slate-500 text-xs font-bold mb-2">í˜¼ìž ë„ì „í•˜ê¸°</p>
+                            {!showSingleModes ? (
+                                <button onClick={() => setShowSingleModes(true)} className="w-full p-5 bg-emerald-500 hover:bg-emerald-600 rounded-[28px] btn-3d font-black text-xl text-white">ðŸ•¹ï¸ í˜¼ìž ë„ì „í•˜ê¸°</button>
+                            ) : (
+                                <div className="space-y-3 scale-in">
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button onClick={() => startSingleMode("beginner")} className="p-3 bg-emerald-500 hover:bg-emerald-600 rounded-2xl font-black text-sm text-white">ì´ˆê¸‰</button>
+                                        <button onClick={() => startSingleMode("mid")} className="p-3 bg-orange-500 hover:bg-orange-600 rounded-2xl font-black text-sm text-white">ì¤‘ê¸‰</button>
+                                        <button onClick={() => startSingleMode("pro")} className="p-3 bg-rose-500 hover:bg-rose-600 rounded-2xl font-black text-sm text-white">ê³ ê¸‰</button>
+                                    </div>
+                                    <button onClick={() => setShowSingleModes(false)} className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl font-bold text-xs transition-colors">ì ‘ê¸°</button>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="fixed bottom-0 w-full h-32 road-line"></div>
@@ -1167,21 +1171,21 @@
                         <div className="flex gap-4">
                             {tutoStep === 0 && (
                                 <React.Fragment>
-                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">´ÙÀ½</button>
-                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold text-slate-600 transition-colors">³ª°¡±â</button>
+                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">ë‹¤ìŒ</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold text-slate-600 transition-colors">ë‚˜ê°€ê¸°</button>
                                 </React.Fragment>
                             )}
                             {(tutoStep === 1 || tutoStep === 2) && (
                                 <React.Fragment>
-                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">ÀÌÀü</button>
-                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">´ÙÀ½</button>
-                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-300 transition-colors">³ª°¡±â</button>
+                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">ì´ì „</button>
+                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">ë‹¤ìŒ</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-300 transition-colors">ë‚˜ê°€ê¸°</button>
                                 </React.Fragment>
                             )}
                             {tutoStep === 3 && (
                                 <React.Fragment>
-                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">ÀÌÀü</button>
-                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-green-500 text-white rounded-2xl font-bold">µµÀüÇÏ±â</button>
+                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">ì´ì „</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-green-500 text-white rounded-2xl font-bold">ë„ì „í•˜ê¸°</button>
                                 </React.Fragment>
                             )}
                         </div>
@@ -1189,40 +1193,40 @@
                 </div>
             );
 
-            // ±³»ç¿ë ¹æ ³­ÀÌµµ ¼¼ÆÃ ¸ð´Þ
+            // êµì‚¬ìš© ë°© ë‚œì´ë„ ì„¸íŒ… ëª¨ë‹¬
             if (view === "teacherSetup") return (
                 <div className="min-h-screen flex items-center justify-center p-6 bg-sky-50">
                     <div className="bg-white border border-sky-100 rounded-[40px] p-8 max-w-md w-full text-center shadow-2xl scale-in text-slate-800">
-                        <h2 className="text-2xl font-black mb-6 text-sky-600">±³»ç¿ë ¼¼¼Ç °³¼³</h2>
-                        <p className="text-slate-500 text-sm mb-6">ÇÐ»ýµéÀÌ ÇÔ²² Âü¿©ÇÒ È¥ÇÕ°è»ê ³­ÀÌµµ¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä.</p>
+                        <h2 className="text-2xl font-black mb-6 text-sky-600">êµì‚¬ìš© ì„¸ì…˜ ê°œì„¤</h2>
+                        <p className="text-slate-500 text-sm mb-6">í•™ìƒë“¤ì´ í•¨ê»˜ ì°¸ì—¬í•  í˜¼í•©ê³„ì‚° ë‚œì´ë„ë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”.</p>
                         
                         <div className="space-y-3 mb-8">
                             <button 
                                 onClick={() => setTeacherModeSelected("beginner")}
                                 className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "beginner" ? "bg-emerald-50 border-emerald-400 text-emerald-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
                             >
-                                <span>?? ÃÊ±Þ (4°³ »çÄ¢¿¬»ê)</span>
+                                <span>ðŸŸ¢ ì´ˆê¸‰ (4ê°œ ì‚¬ì¹™ì—°ì‚°)</span>
                                 {teacherModeSelected === "beginner" && <Icons.Sparkles />}
                             </button>
                             <button 
                                 onClick={() => setTeacherModeSelected("mid")}
                                 className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "mid" ? "bg-orange-50 border-orange-400 text-orange-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
                             >
-                                <span>?? Áß±Þ (ºóÄ­ Ãß¸® ¹× ´Ù°¢È­ ¼ö½Ä)</span>
+                                <span>ðŸ”´ ì¤‘ê¸‰ (ë¹ˆì¹¸ ì¶”ë¦¬ ë° ë‹¤ê°í™” ìˆ˜ì‹)</span>
                                 {teacherModeSelected === "mid" && <Icons.Sparkles />}
                             </button>
                             <button 
                                 onClick={() => setTeacherModeSelected("pro")}
                                 className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "pro" ? "bg-rose-50 border-rose-400 text-rose-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
                             >
-                                <span>?? °í±Þ (4ÀÚ¸® 0 ¸¸µé±â)</span>
+                                <span>ðŸ”´ ê³ ê¸‰ (4ìžë¦¬ 0 ë§Œë“¤ê¸°)</span>
                                 {teacherModeSelected === "pro" && <Icons.Sparkles />}
                             </button>
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Ãë¼Ò</button>
-                            <button onClick={handleCreateSession} className="flex-1 py-4 bg-sky-500 text-white rounded-2xl font-bold btn-3d">¹æ ¸¸µé±â</button>
+                            <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">ì·¨ì†Œ</button>
+                            <button onClick={handleCreateSession} className="flex-1 py-4 bg-sky-500 text-white rounded-2xl font-bold btn-3d">ë°© ë§Œë“¤ê¸°</button>
                         </div>
                     </div>
                 </div>
@@ -1231,56 +1235,56 @@
             if (view === "teacherDashboard") return (
                 <div className="min-h-screen bg-sky-50 p-6 md:p-12 flex flex-col items-center">
                     <div className="w-full max-w-4xl bg-white border border-sky-100 rounded-[40px] p-8 shadow-2xl space-y-8 text-slate-800 scale-in">
-                        {/* Çì´õ */}
+                        {/* í—¤ë” */}
                         <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-b border-sky-100 pb-6">
                             <div className="text-center md:text-left">
-                                <span className="text-xs text-sky-500 font-bold uppercase tracking-widest">½Ç½Ã°£ Å¬¶ó¿ìµå ±³½Ç</span>
-                                <h2 className="text-3xl font-black font-title mt-1 text-slate-900">°í¼Óµµ·Î ¼öÇÐ¿Õ ÇöÈ² ´ë½Ãº¸µå</h2>
+                                <span className="text-xs text-sky-500 font-bold uppercase tracking-widest">ì‹¤ì‹œê°„ í´ë¼ìš°ë“œ êµì‹¤</span>
+                                <h2 className="text-3xl font-black font-title mt-1 text-slate-900">ê³ ì†ë„ë¡œ ìˆ˜í•™ì™• í˜„í™© ëŒ€ì‹œë³´ë“œ</h2>
                             </div>
                             <div className="bg-sky-50 p-4 rounded-3xl border border-sky-100 text-center">
-                                <p className="text-xs text-slate-500 font-bold">ÇÐ»ý Á¢¼Ó ÇÉ¹øÈ£</p>
+                                <p className="text-xs text-slate-500 font-bold">í•™ìƒ ì ‘ì† í•€ë²ˆí˜¸</p>
                                 <p className="text-4xl font-black text-sky-600 font-mono tracking-widest mt-1 animate-pulse">{roomPin}</p>
                             </div>
                         </div>
 
-                        {/* ¼¼¼Ç »óÅÂ Á¤º¸ ¿ä¾à */}
+                        {/* ì„¸ì…˜ ìƒíƒœ ì •ë³´ ìš”ì•½ */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 text-center">
-                                <span className="text-slate-500 text-xs font-bold block">°³¼³ ³­ÀÌµµ</span>
+                                <span className="text-slate-500 text-xs font-bold block">ê°œì„¤ ë‚œì´ë„</span>
                                 <span className="text-lg font-black text-sky-600 mt-1 block">
-                                    {teacherModeSelected === "beginner" ? "ÃÊ±Þ (4°³)" : teacherModeSelected === "mid" ? "Áß±Þ (ºóÄ­)" : "°í±Þ (0¸¸µé±â)"}
+                                    {teacherModeSelected === "beginner" ? "ì´ˆê¸‰ (4ê°œ)" : teacherModeSelected === "mid" ? "ì¤‘ê¸‰ (ë¹ˆì¹¸)" : "ê³ ê¸‰ (0ë§Œë“¤ê¸°)"}
                                 </span>
                             </div>
                             <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 text-center">
-                                <span className="text-slate-500 text-xs font-bold block">Âü¿© ÀÎ¿ø</span>
-                                <span className="text-lg font-black text-emerald-600 mt-1 block">{studentList.length} ¸í</span>
+                                <span className="text-slate-500 text-xs font-bold block">ì°¸ì—¬ ì¸ì›</span>
+                                <span className="text-lg font-black text-emerald-600 mt-1 block">{studentList.length} ëª…</span>
                             </div>
                             <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 col-span-2 text-center">
-                                <span className="text-slate-500 text-xs font-bold block">Å¬¶ó¿ìµå µ¿±âÈ­ »óÅÂ</span>
+                                <span className="text-slate-500 text-xs font-bold block">í´ë¼ìš°ë“œ ë™ê¸°í™” ìƒíƒœ</span>
                                 <span className="text-sm font-bold mt-1 block text-sky-800">
-                                    {isFirebaseOnline ? "?? Á¤»ó °¡µ¿ Áß (½Ç½Ã°£ ¿¬µ¿)" : "?? ¿ÀÇÁ¶óÀÎ ¸ðµå (°¡»ó ½Ã¹Ä·¹ÀÌÅÍ °¡µ¿ Áß)"}
+                                    {isFirebaseOnline ? "ðŸŸ¢ ì •ìƒ ê°€ë™ ì¤‘ (ì‹¤ì‹œê°„ ì—°ë™)" : "ðŸŸ¡ ì˜¤í”„ë¼ì¸ ëª¨ë“œ (ê°€ìƒ ì‹œë®¬ë ˆì´í„° ê°€ë™ ì¤‘)"}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Âü¿©ÀÚ Åë°è ¸®½ºÆ® */}
+                        {/* ì°¸ì—¬ìž í†µê³„ ë¦¬ìŠ¤íŠ¸ */}
                         <div className="bg-sky-50/20 rounded-3xl border border-sky-100 overflow-hidden shadow-inner">
                             <div className="p-4 bg-sky-100/70 border-b border-sky-200 font-bold text-sm text-slate-700 flex justify-between">
-                                <span className="w-1/3">µµÀüÀÚ º°¸í</span>
-                                <span className="w-1/3 text-center">ÇØ°á ¹®Ç× ¼ö</span>
-                                <span className="w-1/3 text-right">Á¾ÇÕ ´©Àû Á¡¼ö</span>
+                                <span className="w-1/3">ë„ì „ìž ë³„ëª…</span>
+                                <span className="w-1/3 text-center">í•´ê²° ë¬¸í•­ ìˆ˜</span>
+                                <span className="w-1/3 text-right">ì¢…í•© ëˆ„ì  ì ìˆ˜</span>
                             </div>
                             <div className="divide-y divide-sky-100 max-h-[300px] overflow-y-auto bg-white">
                                 {studentList.length === 0 ? (
                                     <div className="p-8 text-center text-slate-400 text-sm">
-                                        ¾ÆÁ÷ ÀÔÀåÇÑ ÇÐ»ýÀÌ ¾ø½À´Ï´Ù. ÇÐ»ý¿ë ÆäÀÌÁö¿¡¼­ ÇÉ¹øÈ£¸¦ ÀÔ·ÂÇØ ÁÖ½Ê½Ã¿À.
+                                        ì•„ì§ ìž…ìž¥í•œ í•™ìƒì´ ì—†ìŠµë‹ˆë‹¤. í•™ìƒìš© íŽ˜ì´ì§€ì—ì„œ í•€ë²ˆí˜¸ë¥¼ ìž…ë ¥í•´ ì£¼ì‹­ì‹œì˜¤.
                                     </div>
                                 ) : (
                                     studentList.map((student, idx) => (
                                         <div key={idx} className="p-4 flex justify-between items-center hover:bg-sky-50/50 transition-colors">
                                             <span className="w-1/3 font-black text-slate-800">{student.nickname}</span>
-                                            <span className="w-1/3 text-center font-bold text-indigo-600 font-mono">{student.solved || 0} °³</span>
-                                            <span className="w-1/3 text-right font-black text-sky-600 font-mono text-lg">{student.score || 0} Á¡</span>
+                                            <span className="w-1/3 text-center font-bold text-indigo-600 font-mono">{student.solved || 0} ê°œ</span>
+                                            <span className="w-1/3 text-right font-black text-sky-600 font-mono text-lg">{student.score || 0} ì </span>
                                         </div>
                                     ))
                                 )}
@@ -1288,22 +1292,22 @@
                         </div>
 
                         <div className="flex justify-end gap-3 pt-4">
-                            <button onClick={() => setView("main")} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold transition-colors">´ë½Ãº¸µå Á¾·á</button>
+                            <button onClick={() => setView("main")} className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold transition-colors">ëŒ€ì‹œë³´ë“œ ì¢…ë£Œ</button>
                         </div>
                     </div>
                 </div>
             );
 
-            // ÇÐ»ý¿ë ½Ç½Ã°£ ÀÔÀå ÇÉÄÚµå Æû
+            // í•™ìƒìš© ì‹¤ì‹œê°„ ìž…ìž¥ í•€ì½”ë“œ í¼
             if (view === "studentJoin") return (
                 <div className="min-h-screen flex items-center justify-center p-6 bg-sky-50">
                     <div className="bg-white border border-sky-100 rounded-[40px] p-8 max-w-sm w-full text-center shadow-2xl scale-in text-slate-800">
-                        <h2 className="text-2xl font-black mb-2 text-sky-600">±³½Ç ÀÔÀåÇÏ±â</h2>
-                        <p className="text-slate-500 text-sm mb-6">¼±»ý´Ô È­¸éÀÇ 6ÀÚ¸® ÇÉ¹øÈ£¸¦ ÀÔ·ÂÇÏ°í ÀÔÀåÇÏ¼¼¿ä.</p>
+                        <h2 className="text-2xl font-black mb-2 text-sky-600">êµì‹¤ ìž…ìž¥í•˜ê¸°</h2>
+                        <p className="text-slate-500 text-sm mb-6">ì„ ìƒë‹˜ í™”ë©´ì˜ 6ìžë¦¬ í•€ë²ˆí˜¸ë¥¼ ìž…ë ¥í•˜ê³  ìž…ìž¥í•˜ì„¸ìš”.</p>
                         
                         <div className="space-y-4 mb-8">
                             <div>
-                                <label className="block text-left text-xs text-slate-500 font-bold mb-1 pl-1">¹æ ÇÉ¹øÈ£ (6ÀÚ¸®)</label>
+                                <label className="block text-left text-xs text-slate-500 font-bold mb-1 pl-1">ë°© í•€ë²ˆí˜¸ (6ìžë¦¬)</label>
                                 <input 
                                     type="number" 
                                     placeholder="000000"
@@ -1313,24 +1317,24 @@
                                 />
                             </div>
                             <div>
-                                <label className="block text-left text-xs text-slate-500 font-bold mb-1 pl-1">ÀÚ½ÅÀÇ ´Ð³×ÀÓ</label>
+                                <label className="block text-left text-xs text-slate-500 font-bold mb-1 pl-1">ìžì‹ ì˜ ë‹‰ë„¤ìž„</label>
                                 <input 
                                     type="text" 
-                                    placeholder="ÀÌ¸§ ÀÔ·Â (¿¹: È«±æµ¿)"
+                                    placeholder="ì´ë¦„ ìž…ë ¥ (ì˜ˆ: í™ê¸¸ë™)"
                                     className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-sky-400 text-slate-800 font-bold text-center text-lg outline-none transition-all"
                                     value={nickname}
                                     onChange={e => setNickname(e.target.value)}
                                 />
                             </div>
-                            <button onClick={() => setView("tutorial")} className="w-full mt-1 py-3 bg-sky-50 hover:bg-sky-100 rounded-2xl font-bold text-sm text-sky-900 border border-sky-100 transition-colors">?? ÇÐ½À °¡ÀÌµå ºÏ</button>
+                            <button onClick={() => setView("tutorial")} className="w-full mt-1 py-3 bg-sky-50 hover:bg-sky-100 rounded-2xl font-bold text-sm text-sky-900 border border-sky-100 transition-colors">ðŸ“– í•™ìŠµ ê°€ì´ë“œ ë¶</button>
                             {nicknameError && (
                                 <p className="text-red-500 text-xs font-bold text-left pl-1">{nicknameError}</p>
                             )}
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">µÚ·Î°¡±â</button>
-                            <button onClick={handleStudentJoin} className="flex-1 py-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-2xl font-black btn-3d">¼ö¾÷ Âü¿©</button>
+                            <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">ë’¤ë¡œê°€ê¸°</button>
+                            <button onClick={handleStudentJoin} className="flex-1 py-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-2xl font-black btn-3d">ìˆ˜ì—… ì°¸ì—¬</button>
                         </div>
                     </div>
                 </div>
@@ -1340,29 +1344,29 @@
 
             return (
                 <div className="min-h-screen bg-sky-50 flex flex-col items-center p-4">
-                    {/* »ó´Ü Åë°è ÆÇ³Ú (»ê¶æÇÑ ¼ÒÇÁÆ® È­ÀÌÆ® ÅÛÇÃ¸´) */}
+                    {/* ìƒë‹¨ í†µê³„ íŒë„¬ (ì‚°ëœ»í•œ ì†Œí”„íŠ¸ í™”ì´íŠ¸ í…œí”Œë¦¿) */}
                     <div className="w-full max-w-6xl flex justify-between items-center bg-white text-slate-800 p-5 rounded-[32px] shadow-md mb-6 border border-sky-100">
                         <div className="flex gap-3 items-center">
-                            <span className="font-black text-amber-600 text-2xl">{score}Á¡</span>
+                            <span className="font-black text-amber-600 text-2xl">{score}ì </span>
                             {roomPin && (
                                 <span className="bg-sky-100 text-sky-700 border border-sky-200 text-xs font-black px-3 py-1 rounded-full">
-                                    ¹æ PIN: {roomPin}
+                                    ë°© PIN: {roomPin}
                                 </span>
                             )}
                         </div>
                         <div className="flex gap-6 items-center">
-                            <span className="text-slate-500 font-bold text-sm hidden sm:inline">°æ°ú ½Ã°£:</span>
+                            <span className="text-slate-500 font-bold text-sm hidden sm:inline">ê²½ê³¼ ì‹œê°„:</span>
                             <div className="px-4 py-1.5 bg-sky-50 rounded-full font-mono font-bold text-sm text-sky-700 border border-sky-100">
                                 {Math.floor(timer/60)}:{String(timer%60).padStart(2,'0')}
                             </div>
                         </div>
-                        <button onClick={() => setView("main")} className="bg-slate-100 hover:bg-slate-200 px-5 py-2 rounded-xl font-bold text-sm text-slate-600 transition-colors">±×¸¸ÇÏ±â</button>
+                        <button onClick={handleGameQuit} className="bg-slate-100 hover:bg-slate-200 px-5 py-2 rounded-xl font-bold text-sm text-slate-600 transition-colors">ê·¸ë§Œí•˜ê¸°</button>
                     </div>
 
-                    {/* --- 2ºÐÇÒ ¸ÞÀÎ ÄÜÅÙÃ÷ ºäÆ÷Æ® --- */}
+                    {/* --- 2ë¶„í•  ë©”ì¸ ì½˜í…ì¸  ë·°í¬íŠ¸ --- */}
                     <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start px-2">
                         
-                        {/* 1. ¿ÞÂÊ ºÐÇÒ: ÁÖÇà ¹°¸® ½Ã¹Ä·¹ÀÌÅÍ (Canvas »ó½Ã °¡µ¿) */}
+                        {/* 1. ì™¼ìª½ ë¶„í• : ì£¼í–‰ ë¬¼ë¦¬ ì‹œë®¬ë ˆì´í„° (Canvas ìƒì‹œ ê°€ë™) */}
                         <div className="lg:col-span-5 flex flex-col items-center justify-center w-full">
                             <div className="w-full max-w-[380px] md:max-w-[400px] aspect-[40/45] relative bg-slate-950 rounded-[40px] overflow-hidden border-4 border-sky-200 p-1 shadow-2xl scale-in">
                                 <canvas 
@@ -1380,54 +1384,54 @@
                                     onTouchCancel={handleTouchEnd}
                                 />
 
-                                {/* ÁÖÇà Á¶ÀÛ ÈùÆ® ½ºÆ½ ¿À¹ö·¹ÀÌ */}
+                                {/* ì£¼í–‰ ì¡°ìž‘ ížŒíŠ¸ ìŠ¤í‹± ì˜¤ë²„ë ˆì´ */}
                                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-700 text-white text-[10px] md:text-xs font-bold pointer-events-none text-center animate-pulse w-[90%]">
-                                    PC: ¹æÇâÅ°(¡è,¡ç,¡æ) / ¸ð¹ÙÀÏ: È­¸é ÁÂ¿ì ÅÍÄ¡ ÁÖÇà!
+                                    PC: ë°©í–¥í‚¤(â†‘,â†,â†’) / ëª¨ë°”ì¼: í™”ë©´ ì¢Œìš° í„°ì¹˜ ì£¼í–‰!
                                 </div>
                             </div>
                         </div>
 
-                        {/* 2. ¿À¸¥ÂÊ ºÐÇÒ: ÁÖÇà µð·ºÅä¸® ´ë½Ãº¸µå OR ¼öÇÐ ¹®Á¦ ·¹ÀÌ¾Æ¿ô */}
+                        {/* 2. ì˜¤ë¥¸ìª½ ë¶„í• : ì£¼í–‰ ë””ë ‰í† ë¦¬ ëŒ€ì‹œë³´ë“œ OR ìˆ˜í•™ ë¬¸ì œ ë ˆì´ì•„ì›ƒ */}
                         <div className="lg:col-span-7 w-full flex flex-col items-center">
                             
-                            {/* [ÁÖÇà »óÅÂ ¸ðµå] ´ë½Ãº¸µå ·»´õ¸µ */}
+                            {/* [ì£¼í–‰ ìƒíƒœ ëª¨ë“œ] ëŒ€ì‹œë³´ë“œ ë Œë”ë§ */}
                             {view === "driving" && (
                                 <div className="bg-white border border-sky-100 rounded-[40px] p-8 w-full min-h-[450px] flex flex-col justify-between shadow-xl scale-in text-slate-800">
                                     <div className="text-center space-y-2">
-                                        <span className="text-sky-500 text-xs font-black tracking-widest uppercase">°í¼Óµµ·Î ÄÁÆ®·Ñ µ¥½ºÅ©</span>
-                                        <h2 className="text-3xl font-black font-title text-slate-900">½Ç½Ã°£ ÁÖÇà ´ë½Ãº¸µå</h2>
+                                        <span className="text-sky-500 text-xs font-black tracking-widest uppercase">ê³ ì†ë„ë¡œ ì»¨íŠ¸ë¡¤ ë°ìŠ¤í¬</span>
+                                        <h2 className="text-3xl font-black font-title text-slate-900">ì‹¤ì‹œê°„ ì£¼í–‰ ëŒ€ì‹œë³´ë“œ</h2>
                                     </div>
 
-                                    {/* ½Ç½Ã°£ ·¹ÀÌ´õ ½ºÄ³³Ê ±â¹Í */}
+                                    {/* ì‹¤ì‹œê°„ ë ˆì´ë” ìŠ¤ìºë„ˆ ê¸°ë¯¹ */}
                                     <div className="my-8 flex flex-col items-center justify-center relative py-6">
                                         <div className="w-32 h-32 rounded-full border-4 border-dashed border-sky-300 flex items-center justify-center animate-spin">
                                             <div className="w-24 h-24 rounded-full border-2 border-sky-200 flex items-center justify-center">
                                                 <div className="w-12 h-12 rounded-full bg-sky-50 flex items-center justify-center">
-                                                    <span className="text-sky-400 animate-ping">??</span>
+                                                    <span className="text-sky-400 animate-ping">ðŸ“¡</span>
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="mt-6 text-center">
                                             {speed === 0 ? (
-                                                <p className="text-amber-500 font-bold blink text-lg">?? ´ë±â »óÅÂ: °¡¼Ó Æä´Þ(À§ÂÊ ¹æÇâÅ°)À» ´©¸£¼¼¿ä!</p>
+                                                <p className="text-amber-500 font-bold blink text-lg">ðŸ”´ ëŒ€ê¸° ìƒíƒœ: ê°€ì† íŽ˜ë‹¬(ìœ„ìª½ ë°©í–¥í‚¤)ì„ ëˆ„ë¥´ì„¸ìš”!</p>
                                             ) : drivingState.current.boosterActive ? (
-                                                <p className="text-rose-500 font-black text-xl animate-bounce">? ¼öÆÛ ºÎ½ºÅÍ °¡µ¿ Áß! Ãß¿ù ¼º°ø!</p>
+                                                <p className="text-rose-500 font-black text-xl animate-bounce">âš¡ ìˆ˜í¼ ë¶€ìŠ¤í„° ê°€ë™ ì¤‘! ì¶”ì›” ì„±ê³µ!</p>
                                             ) : (
-                                                <p className="text-emerald-600 font-bold text-lg">?? ¼øÇ× Áß: ¾Õ¿¡ Á¤ÁöÇØ ÀÖ´Â Àû»ö Â÷·®À» Ã£À¸¼¼¿ä!</p>
+                                                <p className="text-emerald-600 font-bold text-lg">ðŸŸ¢ ìˆœí•­ ì¤‘: ì•žì— ì •ì§€í•´ ìžˆëŠ” ì ìƒ‰ ì°¨ëŸ‰ì„ ì°¾ìœ¼ì„¸ìš”!</p>
                                             )}
-                                            <p className="text-slate-400 text-xs mt-2">¾Õ Â÷ÀÇ ¹øÈ£ÆÇÀ» È®º¸ÇÏ´Â Áï½Ã ¼öÇÐ ¹èÆ²ÀÌ ½ÃÀÛµË´Ï´Ù.</p>
+                                            <p className="text-slate-400 text-xs mt-2">ì•ž ì°¨ì˜ ë²ˆí˜¸íŒì„ í™•ë³´í•˜ëŠ” ì¦‰ì‹œ ìˆ˜í•™ ë°°í‹€ì´ ì‹œìž‘ë©ë‹ˆë‹¤.</p>
                                         </div>
                                     </div>
 
-                                    {/* ÄÁÆ®·Ñ ÇÇµå¹é ÆÇ³Ú */}
+                                    {/* ì»¨íŠ¸ë¡¤ í”¼ë“œë°± íŒë„¬ */}
                                     <div className="bg-sky-50 rounded-3xl p-5 border border-sky-100 text-slate-700">
                                         <div className="flex justify-around items-center text-center">
                                             <div className="space-y-1">
-                                                <span className="text-xs text-slate-400 font-bold block">Á¶Á¾¼®</span>
-                                                <span className="font-black text-indigo-700 text-md">{nickname} µå¶óÀÌ¹ö</span>
+                                                <span className="text-xs text-slate-400 font-bold block">ì¡°ì¢…ì„</span>
+                                                <span className="font-black text-indigo-700 text-md">{nickname} ë“œë¼ì´ë²„</span>
                                             </div>
                                             <div className="h-8 w-px bg-sky-200"></div>
-                                            {/* °¡»ó ¹°¸® ÇÇµå¹é ·¥ÇÁ */}
+                                            {/* ê°€ìƒ ë¬¼ë¦¬ í”¼ë“œë°± ëž¨í”„ */}
                                             <div className="flex gap-2">
                                                 <span className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${keysPressed.left ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/50' : 'bg-slate-100 text-slate-400'}`}>LEFT</span>
                                                 <span className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${keysPressed.up ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/50' : 'bg-slate-100 text-slate-400'}`}>ACCEL</span>
@@ -1438,7 +1442,7 @@
                                 </div>
                             )}
 
-                            {/* [¼öÇÐ ¹®Á¦ Ç®ÀÌ ¸ðµå] ·»´õ¸µ */}
+                            {/* [ìˆ˜í•™ ë¬¸ì œ í’€ì´ ëª¨ë“œ] ë Œë”ë§ */}
                             {view === "solving" && problem && (
                                 <div className="w-full flex flex-col items-center scale-in">
                                     <LicensePlate 
@@ -1449,15 +1453,29 @@
                                     />
 
                                     <div className="bg-white w-full rounded-[40px] p-6 md:p-10 shadow-2xl border border-sky-100 text-center relative mt-2">
-                                        {/* 1ºÐ °æ°ú ÈùÆ® º¸±â ¹îÁö */}
-                                        {problemTimer >= 60 && (problem.mode === "mid" || problem.mode === "pro") && (
+                                        
+                                        {/* ðŸŽ¯ AI íŠœí„° ížŒíŠ¸ & ì¼ë°˜ ížŒíŠ¸ ë“€ì–¼ ê°€ì´ë“œ ë°°ì¹˜ */}
+                                        <div className="absolute top-4 right-4 flex gap-2 z-10">
+                                            {/* (1) êµ¬ê¸€ Gemini AI ì—”ì§„ ê¸°ë°˜ ìˆ˜í•™ ë©˜í†  ë²„íŠ¼ */}
                                             <button 
-                                                onClick={() => setShowHintModal(true)}
-                                                className="absolute top-4 right-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in animate-bounce z-10"
+                                                type="button"
+                                                onClick={handleAskAITutor}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in"
                                             >
-                                                <span>?? ÈùÆ® º¸±â</span>
+                                                <span>ðŸ¤– AI íŠœí„° ížŒíŠ¸</span>
                                             </button>
-                                        )}
+
+                                            {/* (2) ê¸°ë³¸ 1ë¶„ ê²½ê³¼ ìˆ˜ì‹ ë¶„í•  ížŒíŠ¸ ë²„íŠ¼ */}
+                                            {problemTimer >= 60 && (problem.mode === "mid" || problem.mode === "pro") && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setShowHintModal(true)}
+                                                    className="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in animate-bounce"
+                                                >
+                                                    <span>ðŸ’¡ ê³µì‹ ížŒíŠ¸</span>
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {problem.mode === "pro" ? (
                                             <div className="space-y-6">
@@ -1473,24 +1491,24 @@
                                                             ))}
                                                         </div>
                                                         <p className="text-xs font-bold text-slate-500 mt-4 ml-1 uppercase tracking-widest flex justify-between">
-                                                            <span>»ç¿ë °¡´ÉÇÑ ¼ýÀÚ (4°³)</span>
+                                                            <span>ì‚¬ìš© ê°€ëŠ¥í•œ ìˆ«ìž (4ê°œ)</span>
                                                             <span>{expression.filter(i => i.type === 'digit').length} / 4</span>
                                                         </p>
                                                     </div>
                                                     <div>
                                                         <div className="grid grid-cols-3 gap-2">
-                                                            {['+', '-', '¡¿', '¡À', '(', ')'].map(o => (
-                                                                <button key={o} onClick={() => addExpr('op', o)} disabled={isProblemSolved} className="h-12 bg-slate-100 rounded-xl font-black text-xl btn-3d disabled:opacity-50 text-slate-700 border border-slate-200">
+                                                            {['+', '-', 'Ã—', 'Ã·', '(', ')'].map(o => (
+                                                                <button key={o} onClick={() => addExpr('op', o)} disabled={isProblemSolved} className="h-12 bg-slate-50 rounded-xl font-black text-xl btn-3d disabled:opacity-50 text-slate-700 border border-slate-200">
                                                                     {o}
                                                                 </button>
                                                             ))}
                                                             <button onClick={() => setExpression(expression.slice(0, -1))} disabled={isProblemSolved} className="col-span-3 h-12 bg-red-50 text-red-500 rounded-xl font-black text-md btn-3d disabled:opacity-50">
-                                                                Áö¿ì±â
+                                                                ì§€ìš°ê¸°
                                                             </button>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <button onClick={checkPro} disabled={isProblemSolved} className="w-full py-5 bg-sky-500 text-white rounded-[24px] font-black text-xl shadow-lg btn-3d disabled:opacity-50">0 ¸¸µé±â µµÀü!</button>
+                                                <button onClick={checkPro} disabled={isProblemSolved} className="w-full py-5 bg-sky-500 text-white rounded-[24px] font-black text-xl shadow-lg btn-3d disabled:opacity-50">0 ë§Œë“¤ê¸° ë„ì „!</button>
                                             </div>
                                         ) : (
                                             <form onSubmit={handleAnswerSubmit} className="space-y-8">
@@ -1505,7 +1523,7 @@
                                                             <span className="text-slate-400">{problem.ops[2]}</span>
                                                             <span>{problem.digits[3]}</span>
                                                             <span className="text-slate-400">=</span>
-                                                            <span className="text-indigo-600 border-b-4 border-indigo-100 px-1 animate-pulse">?</span>
+                                                            <span className="text-indigo-600 border-b-4 border-indigo-100 px-1 animate-pulse font-black">?</span>
                                                         </>
                                                     ) : (
                                                         <div className="flex flex-wrap items-center justify-center gap-1 md:gap-1.5 select-none bg-sky-50/50 px-4 py-3.5 rounded-3xl border border-sky-100 shadow-sm text-slate-800">
@@ -1582,7 +1600,7 @@
                                                     <input 
                                                         type="number" 
                                                         className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-3xl font-black text-center outline-none focus:ring-4 focus:ring-sky-100 transition-all disabled:opacity-50"
-                                                        placeholder="Á¤´ä ÀÔ·Â"
+                                                        placeholder="ì •ë‹µ ìž…ë ¥"
                                                         value={answerInput}
                                                         onChange={e => setAnswerInput(e.target.value)}
                                                         onKeyDown={e => {
@@ -1605,7 +1623,7 @@
                         </div>
                     </div>
 
-                    {/* --- Áß±Þ/°í±Þ ÇÃ·ÎÆÃ ºñ¸ð´Þ ÈùÆ® ÆË¾÷ --- */}
+                    {/* --- ì¤‘ê¸‰/ê³ ê¸‰ í”Œë¡œíŒ… ë¹„ëª¨ë‹¬ ê³µì‹ ížŒíŠ¸ íŒì—… --- */}
                     {showHintModal && view === "solving" && (
                         <div className="fixed md:top-24 md:right-6 bottom-4 left-4 right-4 md:left-auto md:bottom-auto z-40 animate-fade-in pointer-events-none flex justify-center md:justify-end">
                             <div className="bg-white rounded-[32px] p-5 max-w-sm w-full shadow-2xl relative scale-in border-4 border-yellow-300 pointer-events-auto">
@@ -1614,176 +1632,175 @@
                                     onClick={() => setShowHintModal(false)}
                                     className="absolute -top-3 -right-3 w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-slate-700 font-bold shadow-lg transition-transform"
                                 >
-                                    ?
+                                    âœ•
                                 </button>
                                 <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2 justify-center">
-                                    <span>?? Á·Áý°Ô °è»ê ÈùÆ®</span>
+                                    <span>ðŸ’¡ ê³µì‹ ì—°ì‚°ì‹ ížŒíŠ¸</span>
                                 </h3>
 
-                                {/* 1. Áß±Þ ¸ðµå ÈùÆ® (´Ùº¯È­ ÅÛÇÃ¸´º° Á¶°ÇºÎ ºÐ±â ·»´õ¸µ) */}
                                 {problem.mode === "mid" && midHintData && (
                                     <>
-                                        {/* (1) ¼¼ ½Ö °ýÈ£ ÅÛÇÃ¸´ ÈùÆ® ºä */}
                                         {midHintData.templateType === "triple_pair" && (
                                             <div className="space-y-4 py-2">
-                                                <p className="text-slate-500 text-[11px] font-bold text-center">¼±À¸·Î ¼ýÀÚ¸¦ ¹­¾î °£´ÜÇÏ°Ô °è»êÇØ º¸¾Ò¾î¿ä!</p>
+                                                <p className="text-slate-500 text-[11px] font-bold text-center">ì„ ìœ¼ë¡œ ìˆ«ìžë¥¼ ë¬¶ì–´ ê°„ë‹¨í•˜ê²Œ ê³„ì‚°í•´ ë³´ì•˜ì–´ìš”!</p>
                                                 
                                                 <div className="flex flex-col gap-1.5 text-center">
                                                     <div className={`p-2 rounded-xl border-2 ${midHintData.hasB1 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                                                        <div className="text-[9px] font-bold text-slate-400">¹­À½ A</div>
+                                                        <div className="text-[9px] font-bold text-slate-400">ë¬¶ìŒ A</div>
                                                         <div className="font-black text-xs text-slate-700">{midHintData.expr1}</div>
-                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val1}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">â†³ {midHintData.val1}</div>
                                                     </div>
 
                                                     <span className="text-lg font-bold text-slate-300 leading-none">{midHintData.op1}</span>
 
                                                     <div className={`p-2 rounded-xl border-2 ${midHintData.hasB2 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                                                        <div className="text-[9px] font-bold text-slate-400">¹­À½ B</div>
+                                                        <div className="text-[9px] font-bold text-slate-400">ë¬¶ìŒ B</div>
                                                         <div className="font-black text-xs text-slate-700">{midHintData.expr2}</div>
-                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val2}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">â†³ {midHintData.val2}</div>
                                                     </div>
 
                                                     <span className="text-lg font-bold text-slate-300 leading-none">{midHintData.op3}</span>
 
                                                     <div className={`p-2 rounded-xl border-2 ${midHintData.hasB3 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                                                        <div className="text-[9px] font-bold text-slate-400">¹­À½ C</div>
+                                                        <div className="text-[9px] font-bold text-slate-400">ë¬¶ìŒ C</div>
                                                         <div className="font-black text-xs text-slate-700">{midHintData.expr3}</div>
-                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val3}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">â†³ {midHintData.val3}</div>
                                                     </div>
-                                                </div>
-
-                                                <div className="bg-indigo-50 p-2.5 rounded-xl text-center border border-indigo-100">
-                                                    <p className="text-[9px] font-bold text-indigo-400 mb-0.5">ÈùÆ® ¼ö½Ä ¿ä¾à</p>
-                                                    <span className="text-sm font-black text-indigo-600 block truncate">
-                                                        {(() => {
-                                                            const { hasB1, hasB2, hasB3, op1, op3, val1, val2, val3, target } = midHintData;
-                                                            let term1 = hasB1 ? "( ? )" : val1;
-                                                            
-                                                            let term2 = hasB2 ? "( ? )" : val2;
-                                                            let finalOp1 = op1;
-                                                            let finalTerm2 = term2;
-                                                            if (typeof term2 === 'number' && term2 < 0) {
-                                                                if (op1 === '+') {
-                                                                    finalOp1 = '-';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                } else if (op1 === '-') {
-                                                                    finalOp1 = '+';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                }
-                                                            }
-
-                                                            let term3 = hasB3 ? "( ? )" : val3;
-                                                            let finalOp3 = op3;
-                                                            let finalTerm3 = term3;
-                                                            if (typeof term3 === 'number' && term3 < 0) {
-                                                                if (op3 === '+') {
-                                                                    finalOp3 = '-';
-                                                                    finalTerm3 = Math.abs(term3);
-                                                                } else if (op3 === '-') {
-                                                                    finalOp3 = '+';
-                                                                    finalTerm3 = Math.abs(term3);
-                                                                }
-                                                            }
-
-                                                            return `${term1} ${finalOp1} ${finalTerm2} ${finalOp3} ${finalTerm3} = ${target}`;
-                                                        })()}
-                                                    </span>
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* (2) µÎ °³ 3Ç× °ýÈ£ ÅÛÇÃ¸´ ÈùÆ® ºä */}
                                         {midHintData.templateType === "double_triple" && (
                                             <div className="space-y-4 py-2">
-                                                <p className="text-slate-500 text-[11px] font-bold text-center">µÎ °³ÀÇ Å« ¹­À½À¸·Î ³ª´©¾î ´Ü¼øÇÏ°Ô Á¤¸®ÇØ º¸¾Ò¾î¿ä!</p>
+                                                <p className="text-slate-500 text-[11px] font-bold text-center">ë‘ ê°œì˜ í° ë¬¶ìŒìœ¼ë¡œ ë‚˜ëˆ„ì–´ ë‹¨ìˆœí•˜ê²Œ ì •ë¦¬í•´ ë³´ì•˜ì–´ìš”!</p>
                                                 
                                                 <div className="flex flex-col gap-1.5 text-center">
                                                     <div className={`p-3 rounded-xl border-2 ${midHintData.hasB1 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                                                        <div className="text-[9px] font-bold text-slate-400">¹­À½ A (¼¼ Ç× °è»ê)</div>
+                                                        <div className="text-[9px] font-bold text-slate-400">ë¬¶ìŒ A (ì„¸ í•­ ê³„ì‚°)</div>
                                                         <div className="font-black text-xs text-slate-700">{midHintData.expr1}</div>
-                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val1}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">â†³ {midHintData.val1}</div>
                                                     </div>
 
                                                     <span className="text-lg font-bold text-slate-300 leading-none">{midHintData.op2}</span>
 
                                                     <div className={`p-3 rounded-xl border-2 ${midHintData.hasB2 ? 'border-dashed border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                                                        <div className="text-[9px] font-bold text-slate-400">¹­À½ B (¼¼ Ç× °è»ê)</div>
+                                                        <div className="text-[9px] font-bold text-slate-400">ë¬¶ìŒ B (ì„¸ í•­ ê³„ì‚°)</div>
                                                         <div className="font-black text-xs text-slate-700">{midHintData.expr2}</div>
-                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">? {midHintData.val2}</div>
+                                                        <div className="text-[10px] font-bold text-indigo-500 mt-0.5">â†³ {midHintData.val2}</div>
                                                     </div>
-                                                </div>
-
-                                                <div className="bg-indigo-50 p-2.5 rounded-xl text-center border border-indigo-100">
-                                                    <p className="text-[9px] font-bold text-indigo-400 mb-0.5">ÈùÆ® ¼ö½Ä ¿ä¾à</p>
-                                                    <span className="text-sm font-black text-indigo-600 block truncate">
-                                                        {(() => {
-                                                            const { hasB1, hasB2, op2, val1, val2, target } = midHintData;
-                                                            let term1 = hasB1 ? "( ? )" : val1;
-                                                            let term2 = hasB2 ? "( ? )" : val2;
-                                                            let finalOp = op2;
-                                                            let finalTerm2 = term2;
-                                                            if (typeof term2 === 'number' && term2 < 0) {
-                                                                if (op2 === '+') {
-                                                                    finalOp = '-';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                } else if (op2 === '-') {
-                                                                    finalOp = '+';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                }
-                                                            }
-                                                            return `${term1} ${finalOp} ${finalTerm2} = ${target}`;
-                                                        })()}
-                                                    </span>
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* (3) °ýÈ£ ¾ø´Â È¥ÇÕ °è»ê ÅÛÇÃ¸´ ÈùÆ® ºä */}
                                         {midHintData.templateType === "flat_mixed" && (
                                             <div className="space-y-4 py-2 text-center">
-                                                <p className="text-slate-500 text-[11px] font-bold">°ö¼À°ú ³ª´°¼À ºÎºÐÀ» ¸ÕÀú °è»êÇØ¼­ ÈùÆ®¸¦ ¸ð¾Ò¾î¿ä!</p>
+                                                <p className="text-slate-500 text-[11px] font-bold">ê³±ì…ˆê³¼ ë‚˜ëˆ—ì…ˆ ë¶€ë¶„ì„ ë¨¼ì € ê³„ì‚°í•´ì„œ ížŒíŠ¸ë¥¼ ëª¨ì•˜ì–´ìš”!</p>
                                                 {midHintData.hintsList && midHintData.hintsList.length > 0 ? (
                                                     <div className="flex flex-col gap-2">
                                                         {midHintData.hintsList.map((h, idx) => (
                                                             <div key={idx} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center px-4">
                                                                 <span className="font-bold text-xs text-slate-500">{h.expr}</span>
-                                                                <span className="font-black text-sm text-indigo-600">? {h.val}</span>
+                                                                <span className="font-black text-sm text-indigo-600">â†³ {h.val}</span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 ) : (
                                                     <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-left">
                                                         <p className="text-xs font-bold text-indigo-700 leading-relaxed">
-                                                            ?? È¥ÇÕ °è»ê ±ÔÄ¢ ¾Ë¸²:<br/>
-                                                            ´õÇÏ±â, »©±âº¸´Ù <span className="text-amber-600">°öÇÏ±â(¡¿)¿Í ³ª´©±â(¡À)</span>¸¦ ¹«Á¶°Ç ¸ÕÀú Â÷·Ê´ë·Î °è»êÇØ¿ä!
+                                                            ðŸ’¡ í˜¼í•© ê³„ì‚° ê·œì¹™ ì•Œë¦¼:<br/>
+                                                            ë”í•˜ê¸°, ë¹¼ê¸°ë³´ë‹¤ <span className="text-amber-600">ê³±í•˜ê¸°(Ã—)ì™€ ë‚˜ëˆ„ê¸°(Ã·)</span>ë¥¼ ë¨¼ì € ê³„ì‚°í•´ìš”!
                                                         </p>
                                                     </div>
                                                 )}
-                                                <div className="p-2.5 rounded-xl bg-slate-100 text-center text-[10px] font-bold text-slate-400">
-                                                    ÃÖÁ¾ °è»ê ¸ñÇ¥: {midHintData.target}
-                                                </div>
                                             </div>
                                         )}
                                     </>
                                 )}
 
-                                {/* 2. °í±Þ ¸ðµå ÈùÆ® */}
                                 {problem.mode === "pro" && (
                                     <div className="space-y-4 py-2 text-center">
-                                        <p className="text-slate-500 text-xs font-bold">½ÄÀÇ ÀÏºÎºÐÀ» °¡¸° ¸ð¹ü ´ä¾ÈÀÔ´Ï´Ù!</p>
+                                        <p className="text-slate-500 text-xs font-bold">ì‹ì˜ ì¼ë¶€ë¶„ì„ ê°€ë¦° ëª¨ë²” ë‹µì•ˆìž…ë‹ˆë‹¤!</p>
                                         <div className="bg-yellow-50 border-2 border-yellow-100 p-6 rounded-2xl">
                                             <span className="text-xl md:text-2xl font-black text-amber-700 tracking-wider">{problem.hint} = 0</span>
                                         </div>
-                                        <p className="text-[10px] text-slate-400 leading-relaxed font-bold">ºóÄ­ ¡à ÀÚ¸®¿¡ µé¾î°¥ ¼ýÀÚ°¡ ¹«¾ùÀÎÁö ¹øÈ£ÆÇ°ú ¿¬°èÇØ »ý°¢ÇØº¸¼¼¿ä!</p>
                                     </div>
                                 )}
 
                                 <button 
                                     onClick={() => setShowHintModal(false)}
-                                    className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl text-sm transition-colors"
+                                    className="w-full mt-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors"
                                 >
-                                    ´Ý±â
+                                    ë‹«ê¸°
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- ðŸ¤– Google Gemini AI ìˆ˜í•™ íŠœí„° ížŒíŠ¸ íŒì—… ëª¨ë‹¬ --- */}
+                    {showAiModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm scale-in">
+                            <div className="bg-white rounded-[32px] p-6 max-w-md w-full border-4 border-indigo-200 shadow-2xl relative text-center">
+                                <h3 className="text-xl font-black text-indigo-900 flex items-center gap-2 justify-center mb-4">
+                                    <span>ðŸ¤– Gemini AI ì‹¤ì‹œê°„ í˜¼í•©ê³„ì‚° í”¼ë“œë°±</span>
+                                </h3>
+                                
+                                {aiLoading ? (
+                                    <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                                        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                        <p className="text-sm font-bold text-indigo-600 animate-pulse">Gemini AI ìˆ˜í•™ ë©˜í† ê°€ í•™ìƒì˜ ìˆ˜ì‹ì„ ë¶„ì„í•˜ëŠ” ì¤‘...</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-left text-sm text-slate-700 leading-relaxed max-h-[250px] overflow-y-auto font-medium">
+                                            {aiHintText}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-bold">ë³¸ í”¼ë“œë°±ì€ êµ¬ê¸€ Gemini 2.5 Flashê°€ ì‹¤ì‹œê°„ìœ¼ë¡œ ë¶„ì„í•œ ìˆ˜í•™ì  ê°€ì´ë“œìž…ë‹ˆë‹¤.</p>
+                                    </div>
+                                )}
+
+                                <button 
+                                    onClick={() => setShowAiModal(false)}
+                                    className="w-full mt-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-sm btn-3d"
+                                >
+                                    ë„ì›€ë°›ê³  ê³„ì‚°í•´ë³´ê¸°!
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- ðŸ… ëª…ì˜ˆì˜ ì „ë‹¹ ì €ìž¥ ëª¨ë‹¬ --- */}
+                    {showSaveScoreModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm scale-in">
+                            <div className="bg-white rounded-[32px] p-6 max-w-sm w-full border-4 border-sky-200 shadow-2xl relative text-center">
+                                <span className="text-4xl">ðŸ†</span>
+                                <h3 className="text-2xl font-black text-sky-950 mt-3">ëª…ì˜ˆì˜ ì „ë‹¹ ë“±ë¡</h3>
+                                <p className="text-slate-500 text-xs mt-1 font-bold">ë„ì „ìžë‹˜ì˜ ì„±ì : <span className="text-sky-600 text-lg font-black">{score}ì </span></p>
+                                <p className="text-slate-400 text-[11px] mt-2 font-bold">ì´ë¦„ì„ ì ì–´ ì „êµ ì‹¤ì‹œê°„ ëª…ì˜ˆì˜ ì „ë‹¹ ëž­í‚¹ì— ë‚¨ê²¨ë³´ì„¸ìš”!</p>
+                                
+                                <input 
+                                    type="text" 
+                                    maxLength="12"
+                                    placeholder="ë³„ëª… ìž…ë ¥ (ì˜ˆ: í™ê¸¸ë™)"
+                                    className="w-full mt-5 p-4 rounded-xl bg-slate-100 border border-slate-200 focus:border-sky-400 font-bold text-center text-lg outline-none"
+                                    value={saveScoreName}
+                                    onChange={e => setSaveScoreName(e.target.value)}
+                                />
+
+                                <div className="grid grid-cols-2 gap-3 mt-6">
+                                    <button 
+                                        onClick={() => { setShowSaveScoreModal(false); setView("main"); }}
+                                        className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm"
+                                    >
+                                        ê·¸ëƒ¥ ë‚˜ê°€ê¸°
+                                    </button>
+                                    <button 
+                                        onClick={handleSaveLeaderboardScore}
+                                        disabled={!saveScoreName.trim()}
+                                        className="py-3 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-xl text-sm btn-3d disabled:opacity-50"
+                                    >
+                                        ëž­í‚¹ ë“±ë¡!
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
