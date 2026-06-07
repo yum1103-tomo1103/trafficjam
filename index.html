@@ -82,6 +82,7 @@
 
         let db = null;
         let isFirebaseOnline = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'highway-math-king-v1';
 
         // 학생 아이디 → Firebase 이메일 (실제 메일 불필요, .local 도메인은 Auth에서 거부될 수 있음)
         const STUDENT_EMAIL_DOMAIN = "@student.trafficjam.app";
@@ -223,12 +224,27 @@
             const [isProblemSolved, setIsProblemSolved] = useState(false);
             const [feedback, setFeedback] = useState({ text: "", type: "" });
             const [tutoStep, setTutoStep] = useState(0);
+            const [showSingleModes, setShowSingleModes] = useState(false); // 혼자 도전하기 세부 메뉴 표시 여부
 
             // 실시간 교실용 동기화 상태
             const [roomPin, setRoomPin] = useState("");
             const [pinInput, setPinInput] = useState("");
             const [studentList, setStudentList] = useState([]); // 교사용 학생 리스트
             const [teacherModeSelected, setTeacherModeSelected] = useState("beginner"); // 교사가 개설할 방 난이도
+            const [sessionError, setSessionError] = useState(""); // 교사용 방 개설 에러 상태 추가
+
+            // 파이어베이스 인증 여부 상태
+            const [firebaseUser, setFirebaseUser] = useState(null);
+
+            // 누적 명예의 전당 상태 및 저장 모달 제어
+            const [globalLeaderboard, setGlobalLeaderboard] = useState([]);
+            const [showSaveScoreModal, setShowSaveScoreModal] = useState(false);
+            const [saveScoreName, setSaveScoreName] = useState("");
+
+            // Gemini API 연동 상태
+            const [aiHintText, setAiHintText] = useState("");
+            const [aiLoading, setAiLoading] = useState(false);
+            const [showAiModal, setShowAiModal] = useState(false);
 
             // 주행 물리 가속 제어
             const [speed, setSpeed] = useState(0);
@@ -267,14 +283,56 @@
                 { title: "규칙 4. 무적의 해결사 괄호 ( )", desc: "괄호 ( )가 보이면 모든 규칙을 무시하고 괄호 안을 1등으로 계산해요!", ex: "(4 + 2) × 5 = 6 × 5 = 30" }
             ];
 
-            // 로그인 상태 유지 및 학생 프로필 불러오기
+            // RULE 3 - Auth Before Queries (선인증 가드 및 명예의 전당 데이터 조회)
+            useEffect(() => {
+                if (!isConfigValid) return;
+                const auth = firebase.auth();
+                const initAuth = async () => {
+                    try {
+                        let user = auth.currentUser;
+                        if (!user) {
+                            user = await auth.signInAnonymously();
+                        }
+                        setFirebaseUser(user);
+                    } catch (e) {
+                        console.warn("인증 실패, 재호출 진행:", e);
+                    }
+                };
+                initAuth();
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    setFirebaseUser(user);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // 명예의 전당 실시간 누적 구독 (RULE 1, 2 준수 - Compound Query 없이 수동 인메모리 정렬)
+            useEffect(() => {
+                if (!db || !firebaseUser) return;
+                
+                const leaderboardRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("leaderboard");
+                const unsubscribe = leaderboardRef.onSnapshot((snapshot) => {
+                    const temp = [];
+                    snapshot.forEach((doc) => {
+                        temp.push(doc.data());
+                    });
+                    // RULE 2 에 따른 JS 메모리 내 정렬
+                    temp.sort((a, b) => (b.score || 0) - (a.score || 0));
+                    setGlobalLeaderboard(temp.slice(0, 5));
+                }, (err) => {
+                    console.error("명예의 전당 구독 에러:", err);
+                });
+
+                return () => unsubscribe();
+            }, [firebaseUser]);
+
+            // 로그인 상태 유지 및 학생 프로필 불러오기 (RULE 1 준수)
             useEffect(() => {
                 if (!isFirebaseOnline) return;
                 const unsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
                     if (user && !user.isAnonymous) {
                         setCurrentUser(user);
                         try {
-                            const doc = await db.collection("users").doc(user.uid).get();
+                            const doc = await db.collection("artifacts").doc(appId).collection("users").doc(user.uid).collection("profile").doc("info").get();
                             if (doc.exists) {
                                 const data = doc.data();
                                 setStudentProfile(data);
@@ -321,6 +379,7 @@
                 }
             };
 
+            // 학생 가입 (RULE 1 준수)
             const handleStudentSignup = async () => {
                 const id = authStudentId.trim().toLowerCase();
                 const name = authDisplayName.trim();
@@ -338,7 +397,7 @@
                     const cred = await firebase.auth().createUserWithEmailAndPassword(studentIdToEmail(id), authPassword);
                     await cred.user.updateProfile({ displayName: name });
                     try {
-                        await db.collection("users").doc(cred.user.uid).set({
+                        await db.collection("artifacts").doc(appId).collection("users").doc(cred.user.uid).collection("profile").doc("info").set({
                             studentId: id,
                             displayName: name,
                             totalScore: 0,
@@ -412,33 +471,23 @@
                 setView("main");
             };
 
-            // 최근 플레이 기록 불러오기
+            // 최근 플레이 기록 불러오기 (RULE 1, 2 준수 — 복합쿼리 없이 메모리 정렬)
             useEffect(() => {
                 if (view !== "studentRecords" || !isFirebaseOnline || !currentUser) return;
-                const unsub = db.collection("users").doc(currentUser.uid).collection("plays")
-                    .orderBy("playedAt", "desc")
-                    .limit(20)
+                const unsub = db.collection("artifacts").doc(appId).collection("users").doc(currentUser.uid).collection("plays")
                     .onSnapshot((snap) => {
                         const list = [];
                         snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-                        setPlayHistory(list);
+                        // JS 메모리 내 정렬
+                        list.sort((a, b) => {
+                            const tA = a.playedAt?.seconds || 0;
+                            const tB = b.playedAt?.seconds || 0;
+                            return tB - tA;
+                        });
+                        setPlayHistory(list.slice(0, 20));
                     }, (err) => console.error("Play History Error:", err));
                 return () => unsub();
             }, [view, currentUser]);
-
-            // 타이머 통합 제어
-            useEffect(() => {
-                let interval;
-                if (view === "driving" || view === "solving") {
-                    interval = setInterval(() => {
-                        setTimer(t => t + 1);
-                        if (view === "solving") {
-                            setProblemTimer(pt => pt + 1);
-                        }
-                    }, 1000);
-                }
-                return () => clearInterval(interval);
-            }, [view]);
 
             const evaluateNoParen = (str) => {
                 const tokens = [];
@@ -764,18 +813,17 @@
                 setAnswerInput("");
                 setIsProblemSolved(false);
                 setProblemTimer(0);
-                setShowHintModal(false);
-                setFeedback({ text: mode === "pro" ? "숫자 4개를 모두 사용해 0을 만드세요!" : "빈칸에 알맞은 숫자를 적고 엔터 또는 확인을 누르세요!", type: "info" });
-            };
+            }; // generateProblemForCar 닫는 괄호 복구
 
-            // 실시간 교사용 방 만들기 개설 로직
+            // 실시간 교사용 방 만들기 개설 로직 (RULE 1 준수)
             const handleCreateSession = async () => {
                 const randomPin = Math.floor(100000 + Math.random() * 900000).toString(); // 6자리 랜덤 핀
                 setRoomPin(randomPin);
+                setSessionError("");
 
                 if (isFirebaseOnline) {
                     try {
-                        await db.collection("sessions").doc(randomPin).set({
+                        await db.collection("artifacts").doc(appId).collection("public").doc("data").collection("sessions").doc(randomPin).set({
                             mode: teacherModeSelected,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                             active: true
@@ -783,6 +831,7 @@
                         console.log("Firebase Session Created:", randomPin);
                     } catch (e) {
                         console.error("Firebase Room Create Error:", e);
+                        setSessionError(`방 생성 실패: ${e.message || "권한 또는 보안 규칙을 확인해 주세요."}`);
                     }
                 } else {
                     // 오프라인 가상 모드: 시뮬레이션용 데이터 초기화
@@ -795,40 +844,7 @@
                 setView("teacherDashboard");
             };
 
-            // 교사용 실시간 스트리밍 모니터링 수신 (onSnapshot 활성화)
-            useEffect(() => {
-                if (view !== "teacherDashboard" || !roomPin) return;
-
-                if (isFirebaseOnline) {
-                    const unsubscribe = db.collection("sessions").doc(roomPin).collection("students")
-                        .onSnapshot((snapshot) => {
-                            const list = [];
-                            snapshot.forEach((doc) => {
-                                list.push(doc.data());
-                            });
-                            setStudentList(list);
-                        }, (err) => {
-                            console.error("Listener Error:", err);
-                        });
-                    return () => unsubscribe();
-                } else {
-                    // 오프라인 가상 시뮬레이터: 4초마다 가상 학생들이 난이도에 맞춰 득점함
-                    const interval = setInterval(() => {
-                        setStudentList(prev => prev.map(student => {
-                            const solvedAdd = Math.random() > 0.4 ? 1 : 0;
-                            const scoreAdd = solvedAdd * (teacherModeSelected === "pro" ? 50 : 10);
-                            return {
-                                ...student,
-                                score: student.score + scoreAdd,
-                                solved: student.solved + solvedAdd
-                            };
-                        }));
-                    }, 4000);
-                    return () => clearInterval(interval);
-                }
-            }, [view, roomPin]);
-
-            // 학생용 실시간 핀번호 입장 처리 (로그인 필수)
+            // 학생용 실시간 핀번호 입장 처리 (로그인 필수 + RULE 1 준수)
             const handleStudentJoin = async () => {
                 if (!currentUser || !studentProfile) {
                     setNicknameError("수업 참여 전에 회원가입 또는 로그인을 해 주세요.");
@@ -842,7 +858,8 @@
 
                 if (isFirebaseOnline) {
                     try {
-                        const roomDoc = await db.collection("sessions").doc(pinInput).get();
+                        const sessionDocRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("sessions").doc(pinInput);
+                        const roomDoc = await sessionDocRef.get();
                         if (!roomDoc.exists) {
                             setNicknameError("유효하지 않은 핀번호입니다!");
                             return;
@@ -856,8 +873,8 @@
                         const displayName = studentProfile.displayName;
                         setNickname(displayName);
 
-                        // 학생 전용 데이터 등록 (UID 기준)
-                        await db.collection("sessions").doc(pinInput).collection("students").doc(currentUser.uid).set({
+                        // 학생 전용 데이터 등록 (UID 기준 + RULE 1 준수)
+                        await sessionDocRef.collection("students").doc(currentUser.uid).set({
                             uid: currentUser.uid,
                             studentId: studentProfile.studentId,
                             nickname: displayName,
@@ -872,7 +889,7 @@
                         startDrivingPhysics(selectedMode);
                     } catch (e) {
                         console.error("Join Error:", e);
-                        setNicknameError("네트워크 오류가 발생했습니다.");
+                        setNicknameError(`접속 실패: ${e.message || "네트워크 오류가 발생했습니다."}`);
                     }
                 } else {
                     setGameMode("beginner");
@@ -907,11 +924,11 @@
                 setView("driving");
             };
 
-            // 학생 득점 시 실시간 대시보드 + 개인 기록 영구 저장
+            // 학생 득점 시 실시간 대시보드 + 개인 기록 영구 저장 (RULE 1 준수)
             const syncStudentScore = async (newScore, newSolved, scoreDelta = 0, solvedDelta = 0) => {
                 if (isFirebaseOnline && roomPin && currentUser) {
                     try {
-                        await db.collection("sessions").doc(roomPin).collection("students").doc(currentUser.uid).update({
+                        await db.collection("artifacts").doc(appId).collection("public").doc("data").collection("sessions").doc(roomPin).collection("students").doc(currentUser.uid).update({
                             score: newScore,
                             solved: newSolved,
                             lastActive: firebase.firestore.FieldValue.serverTimestamp()
@@ -922,7 +939,7 @@
                 }
                 if (isFirebaseOnline && currentUser && scoreDelta > 0) {
                     try {
-                        const userRef = db.collection("users").doc(currentUser.uid);
+                        const userRef = db.collection("artifacts").doc(appId).collection("users").doc(currentUser.uid).collection("profile").doc("info");
                         const updates = {
                             totalScore: firebase.firestore.FieldValue.increment(scoreDelta),
                             totalSolved: firebase.firestore.FieldValue.increment(solvedDelta),
@@ -949,7 +966,7 @@
             const saveGameSessionRecord = async (finalScore, finalSolved, finalMode, finalTimer) => {
                 if (!isFirebaseOnline || !currentUser || finalScore <= 0) return;
                 try {
-                    await db.collection("users").doc(currentUser.uid).collection("plays").add({
+                    await db.collection("artifacts").doc(appId).collection("users").doc(currentUser.uid).collection("plays").add({
                         score: finalScore,
                         solved: finalSolved,
                         mode: finalMode,
@@ -957,7 +974,7 @@
                         durationSec: finalTimer,
                         playedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    await db.collection("users").doc(currentUser.uid).update({
+                    await db.collection("artifacts").doc(appId).collection("users").doc(currentUser.uid).collection("profile").doc("info").update({
                         gamesPlayed: firebase.firestore.FieldValue.increment(1)
                     });
                     setStudentProfile(prev => prev ? { ...prev, gamesPlayed: (prev.gamesPlayed || 0) + 1 } : prev);
@@ -1268,6 +1285,7 @@
                     const nextSolved = Math.floor(nextScore / 10);
                     setScore(nextScore);
 
+                    // 실시간 클라우드 DB 대시보드 득점 업로드
                     syncStudentScore(nextScore, nextSolved, 10, 1);
 
                     setTimeout(() => {
@@ -1349,20 +1367,98 @@
                 const name = studentProfile?.displayName || "도전자";
                 setNickname(name);
                 setGameMode(mode);
-                setRoomPin("");
+                setRoomPin(""); 
                 sessionStartRef.current = { score: 0, solved: 0, mode, timer: 0 };
                 setScore(0);
                 setTimer(0);
                 startDrivingPhysics(mode);
             };
 
+            // Gemini API 활용 수학 튜터 피드백 호출 (Exponential Backoff 내장)
+            const handleAskAITutor = async () => {
+                if (!problem) return;
+                setAiLoading(true);
+                setAiHintText("");
+                setShowAiModal(true);
+
+                const currentFormula = problem.mode === "beginner" 
+                    ? `${problem.digits[0]} ${problem.ops[0]} ${problem.digits[1]} ${problem.ops[1]} ${problem.digits[2]} ${problem.ops[2]} ${problem.digits[3]} = ?`
+                    : problem.mode === "mid"
+                    ? `비어있는 번호판 계산식: 괄호 구조형 수식을 완성하여 타겟값 ${problem.target}을 도출하는 빈칸(수식 ? 자리) 찾기`
+                    : `주어진 숫자 카드 ${problem.digits.join(", ")}을 사칙연산과 괄호로 묶어 최종값 0을 만드는 퍼즐`;
+
+                const systemPrompt = "너는 초등학교 5학년 학생들을 위한 상냥하고 격려 넘치는 AI 수학 멘토 선생님이야. 학생들이 고속도로 수학왕 게임에서 혼합계산 문제를 풀 때 수학 원리를 가르쳐 줘야 해. 절대 정답을 바로 말해주지 말고, 괄호가 있는지, 곱셈/나눗셈을 덧셈/뺄셈보다 왜 먼저 계산해야 하는지 등 수식 우선순위를 친근한 한국어로 흥미롭게 설명해 줘. 짧고 한눈에 들어오는 문장으로 작성하고 이모티콘을 적극 사용해줘.";
+                const userQuery = `현재 학생이 풀고 있는 수식 상황: ${currentFormula}. 5학년 학생의 눈높이에 맞춰 직접적인 답은 비밀로 하되, 식을 푸는 원리와 우선순위에 대한 맞춤형 힌트를 3줄 내외로 제안해 줘!`;
+
+                const apiKey = ""; // Runtime 환경 자동 주입
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                let delay = 1000;
+                let success = false;
+                let aiResponse = "";
+
+                for (let i = 0; i < 5; i++) {
+                    try {
+                        const response = await fetch(url, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) {
+                            const result = await response.json();
+                            aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || "연산의 규칙을 잘 찾아보세요! 화이팅!";
+                            success = true;
+                            break;
+                        }
+                    } catch (err) {
+                        // Fail silently for backoff retry
+                    }
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+
+                if (success) {
+                    setAiHintText(aiResponse);
+                } else {
+                    setAiHintText("앗! 주행 중 터널을 지나서 AI 튜터와의 무선 연결이 불안정해요. 수식의 우선순위(괄호 먼저 ➔ 곱셈/나눗셈 ➔ 덧셈/뺄셈)를 떠올려보세요!");
+                }
+                setAiLoading(false);
+            };
+
             if (view === "main") return (
                 <div className="min-h-screen flex flex-col md:flex-row items-center justify-center p-8 gap-16 bg-sky-50 relative overflow-hidden">
-                    <div className="flex-1 text-center md:text-left z-10 space-y-8">
-                        <h1 className="text-7xl md:text-[9rem] font-title text-indigo-950 tracking-tighter leading-none drop-shadow-md">
+                    <div className="flex-1 text-center md:text-left z-10 space-y-6">
+                        <h1 className="text-7xl md:text-[8rem] font-title text-indigo-950 tracking-tighter leading-none drop-shadow-md">
                             고속도로<br/><span className="text-sky-500">수학왕</span>
                         </h1>
                         <p className="text-indigo-600 text-xl font-bold italic">“길 위에서 스쳐 지나는 숫자로 푸는 재미있는 수학 교실”</p>
+                        
+                        {/* 실시간 누적 명예의 전당 (Persistent Leaderboard) 카드뷰 */}
+                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-[32px] border border-sky-100 max-w-md shadow-md scale-in mt-4">
+                            <h3 className="text-md font-black text-indigo-950 mb-3 flex items-center gap-2">
+                                <span>🏆 실시간 전교 명예의 전당</span>
+                                <span className="bg-sky-100 text-sky-600 text-[10px] px-2.5 py-0.5 rounded-full font-bold">TOP 5</span>
+                            </h3>
+                            <div className="divide-y divide-sky-100/60">
+                                {globalLeaderboard.length === 0 ? (
+                                    <p className="text-xs text-slate-400 py-3 text-center">첫 명예의 전당 주인공에 도전해보세요!</p>
+                                ) : (
+                                    globalLeaderboard.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center py-2 text-sm">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? 'bg-yellow-400 text-white' : idx === 1 ? 'bg-slate-300 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-sky-100 text-sky-700'}`}>{idx + 1}</span>
+                                                <span className="font-bold text-slate-700">{item.nickname}</span>
+                                            </div>
+                                            <span className="font-black text-sky-600 font-mono">{item.score} 점</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex-1 w-full max-w-sm space-y-6 z-10 bg-white p-6 rounded-[40px] border border-sky-100 shadow-xl">
@@ -1428,8 +1524,25 @@
                             <div className="text-3xl font-black text-sky-500 text-center tracking-tight">{tutorials[tutoStep].ex}</div>
                         </div>
                         <div className="flex gap-4">
-                            {tutoStep > 0 && <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold">이전</button>}
-                            {tutoStep < 3 ? <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">다음</button> : <button onClick={() => {setView("main"); setTutoStep(0);}} className="flex-1 py-5 bg-green-500 text-white rounded-2xl font-bold">도전하기</button>}
+                            {tutoStep === 0 && (
+                                <React.Fragment>
+                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">다음</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 rounded-2xl font-bold text-slate-600 transition-colors">나가기</button>
+                                </React.Fragment>
+                            )}
+                            {(tutoStep === 1 || tutoStep === 2) && (
+                                <React.Fragment>
+                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">이전</button>
+                                    <button onClick={() => setTutoStep(s => s + 1)} className="flex-1 py-5 bg-sky-500 text-white rounded-2xl font-bold">다음</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-300 transition-colors">나가기</button>
+                                </React.Fragment>
+                            )}
+                            {tutoStep === 3 && (
+                                <React.Fragment>
+                                    <button onClick={() => setTutoStep(s => s - 1)} className="flex-1 py-5 bg-slate-100 rounded-2xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">이전</button>
+                                    <button onClick={() => { setView("studentJoin"); setTutoStep(0); }} className="flex-1 py-5 bg-green-500 text-white rounded-2xl font-bold">도전하기</button>
+                                </React.Fragment>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1454,7 +1567,7 @@
                                 onClick={() => setTeacherModeSelected("mid")}
                                 className={`w-full p-4 rounded-2xl font-bold text-left flex justify-between items-center transition-all border ${teacherModeSelected === "mid" ? "bg-orange-50 border-orange-400 text-orange-600" : "bg-slate-50 border-slate-200 text-slate-700"}`}
                             >
-                                <span>🟠 중급 (빈칸 추리 및 다각화 수식)</span>
+                                <span>🔴 중급 (빈칸 추리 및 다각화 수식)</span>
                                 {teacherModeSelected === "mid" && <Icons.Sparkles />}
                             </button>
                             <button 
@@ -1465,6 +1578,10 @@
                                 {teacherModeSelected === "pro" && <Icons.Sparkles />}
                             </button>
                         </div>
+
+                        {sessionError && (
+                            <p className="text-red-500 text-xs font-bold mb-4 scale-in">{sessionError}</p>
+                        )}
 
                         <div className="flex gap-3">
                             <button onClick={() => setView("main")} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold hover:bg-slate-200 transition-colors">취소</button>
@@ -1818,15 +1935,29 @@
                                     />
 
                                     <div className="bg-white w-full rounded-[40px] p-6 md:p-10 shadow-2xl border border-sky-100 text-center relative mt-2">
-                                        {/* 1분 경과 힌트 보기 뱃지 */}
-                                        {problemTimer >= 60 && (problem.mode === "mid" || problem.mode === "pro") && (
+                                        
+                                        {/* 🎯 AI 튜터 힌트 & 일반 힌트 듀얼 가이드 배치 */}
+                                        <div className="absolute top-4 right-4 flex gap-2 z-10">
+                                            {/* (1) 구글 Gemini AI 엔진 기반 수학 멘토 버튼 */}
                                             <button 
-                                                onClick={() => setShowHintModal(true)}
-                                                className="absolute top-4 right-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in animate-bounce z-10"
+                                                type="button"
+                                                onClick={handleAskAITutor}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in"
                                             >
-                                                <span>💡 힌트 보기</span>
+                                                <span>🤖 AI 튜터 힌트</span>
                                             </button>
-                                        )}
+
+                                            {/* (2) 기본 1분 경과 수식 분할 힌트 버튼 */}
+                                            {problemTimer >= 60 && (problem.mode === "mid" || problem.mode === "pro") && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setShowHintModal(true)}
+                                                    className="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all scale-in animate-bounce"
+                                                >
+                                                    <span>💡 공식 힌트</span>
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {problem.mode === "pro" ? (
                                             <div className="space-y-6">
@@ -1849,7 +1980,7 @@
                                                     <div>
                                                         <div className="grid grid-cols-3 gap-2">
                                                             {['+', '-', '×', '÷', '(', ')'].map(o => (
-                                                                <button key={o} onClick={() => addExpr('op', o)} disabled={isProblemSolved} className="h-12 bg-slate-100 rounded-xl font-black text-xl btn-3d disabled:opacity-50 text-slate-700 border border-slate-200">
+                                                                <button key={o} onClick={() => addExpr('op', o)} disabled={isProblemSolved} className="h-12 bg-slate-50 rounded-xl font-black text-xl btn-3d disabled:opacity-50 text-slate-700 border border-slate-200">
                                                                     {o}
                                                                 </button>
                                                             ))}
@@ -1874,7 +2005,7 @@
                                                             <span className="text-slate-400">{problem.ops[2]}</span>
                                                             <span>{problem.digits[3]}</span>
                                                             <span className="text-slate-400">=</span>
-                                                            <span className="text-indigo-600 border-b-4 border-indigo-100 px-1 animate-pulse">?</span>
+                                                            <span className="text-indigo-600 border-b-4 border-indigo-100 px-1 animate-pulse font-black">?</span>
                                                         </>
                                                     ) : (
                                                         <div className="flex flex-wrap items-center justify-center gap-1 md:gap-1.5 select-none bg-sky-50/50 px-4 py-3.5 rounded-3xl border border-sky-100 shadow-sm text-slate-800">
@@ -1974,7 +2105,7 @@
                         </div>
                     </div>
 
-                    {/* --- 중급/고급 플로팅 비모달 힌트 팝업 --- */}
+                    {/* --- 중급/고급 공식 힌트 팝업 --- */}
                     {showHintModal && view === "solving" && (
                         <div className="fixed md:top-24 md:right-6 bottom-4 left-4 right-4 md:left-auto md:bottom-auto z-40 animate-fade-in pointer-events-none flex justify-center md:justify-end">
                             <div className="bg-white rounded-[32px] p-5 max-w-sm w-full shadow-2xl relative scale-in border-4 border-yellow-300 pointer-events-auto">
@@ -1986,13 +2117,11 @@
                                     ✕
                                 </button>
                                 <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2 justify-center">
-                                    <span>💡 족집게 계산 힌트</span>
+                                    <span>💡 공식 연산식 힌트</span>
                                 </h3>
 
-                                {/* 1. 중급 모드 힌트 (다변화 템플릿별 조건부 분기 렌더링) */}
                                 {problem.mode === "mid" && midHintData && (
                                     <>
-                                        {/* (1) 세 쌍 괄호 템플릿 힌트 뷰 */}
                                         {midHintData.templateType === "triple_pair" && (
                                             <div className="space-y-4 py-2">
                                                 <p className="text-slate-500 text-[11px] font-bold text-center">선으로 숫자를 묶어 간단하게 계산해 보았어요!</p>
@@ -2020,48 +2149,9 @@
                                                         <div className="text-[10px] font-bold text-indigo-500 mt-0.5">↳ {midHintData.val3}</div>
                                                     </div>
                                                 </div>
-
-                                                <div className="bg-indigo-50 p-2.5 rounded-xl text-center border border-indigo-100">
-                                                    <p className="text-[9px] font-bold text-indigo-400 mb-0.5">힌트 수식 요약</p>
-                                                    <span className="text-sm font-black text-indigo-600 block truncate">
-                                                        {(() => {
-                                                            const { hasB1, hasB2, hasB3, op1, op3, val1, val2, val3, target } = midHintData;
-                                                            let term1 = hasB1 ? "( ? )" : val1;
-                                                            
-                                                            let term2 = hasB2 ? "( ? )" : val2;
-                                                            let finalOp1 = op1;
-                                                            let finalTerm2 = term2;
-                                                            if (typeof term2 === 'number' && term2 < 0) {
-                                                                if (op1 === '+') {
-                                                                    finalOp1 = '-';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                } else if (op1 === '-') {
-                                                                    finalOp1 = '+';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                }
-                                                            }
-
-                                                            let term3 = hasB3 ? "( ? )" : val3;
-                                                            let finalOp3 = op3;
-                                                            let finalTerm3 = term3;
-                                                            if (typeof term3 === 'number' && term3 < 0) {
-                                                                if (op3 === '+') {
-                                                                    finalOp3 = '-';
-                                                                    finalTerm3 = Math.abs(term3);
-                                                                } else if (op3 === '-') {
-                                                                    finalOp3 = '+';
-                                                                    finalTerm3 = Math.abs(term3);
-                                                                }
-                                                            }
-
-                                                            return `${term1} ${finalOp1} ${finalTerm2} ${finalOp3} ${finalTerm3} = ${target}`;
-                                                        })()}
-                                                    </span>
-                                                </div>
                                             </div>
                                         )}
 
-                                        {/* (2) 두 개 3항 괄호 템플릿 힌트 뷰 */}
                                         {midHintData.templateType === "double_triple" && (
                                             <div className="space-y-4 py-2">
                                                 <p className="text-slate-500 text-[11px] font-bold text-center">두 개의 큰 묶음으로 나누어 단순하게 정리해 보았어요!</p>
@@ -2081,33 +2171,9 @@
                                                         <div className="text-[10px] font-bold text-indigo-500 mt-0.5">↳ {midHintData.val2}</div>
                                                     </div>
                                                 </div>
-
-                                                <div className="bg-indigo-50 p-2.5 rounded-xl text-center border border-indigo-100">
-                                                    <p className="text-[9px] font-bold text-indigo-400 mb-0.5">힌트 수식 요약</p>
-                                                    <span className="text-sm font-black text-indigo-600 block truncate">
-                                                        {(() => {
-                                                            const { hasB1, hasB2, op2, val1, val2, target } = midHintData;
-                                                            let term1 = hasB1 ? "( ? )" : val1;
-                                                            let term2 = hasB2 ? "( ? )" : val2;
-                                                            let finalOp = op2;
-                                                            let finalTerm2 = term2;
-                                                            if (typeof term2 === 'number' && term2 < 0) {
-                                                                if (op2 === '+') {
-                                                                    finalOp = '-';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                } else if (op2 === '-') {
-                                                                    finalOp = '+';
-                                                                    finalTerm2 = Math.abs(term2);
-                                                                }
-                                                            }
-                                                            return `${term1} ${finalOp} ${finalTerm2} = ${target}`;
-                                                        })()}
-                                                    </span>
-                                                </div>
                                             </div>
                                         )}
 
-                                        {/* (3) 괄호 없는 혼합 계산 템플릿 힌트 뷰 */}
                                         {midHintData.templateType === "flat_mixed" && (
                                             <div className="space-y-4 py-2 text-center">
                                                 <p className="text-slate-500 text-[11px] font-bold">곱셈과 나눗셈 부분을 먼저 계산해서 힌트를 모았어요!</p>
@@ -2124,35 +2190,99 @@
                                                     <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-left">
                                                         <p className="text-xs font-bold text-indigo-700 leading-relaxed">
                                                             💡 혼합 계산 규칙 알림:<br/>
-                                                            더하기, 빼기보다 <span className="text-amber-600">곱하기(×)와 나누기(÷)</span>를 무조건 먼저 차례대로 계산해요!
+                                                            더하기, 빼기보다 <span className="text-amber-600">곱하기(×)와 나누기(÷)</span>를 먼저 계산해요!
                                                         </p>
                                                     </div>
                                                 )}
-                                                <div className="p-2.5 rounded-xl bg-slate-100 text-center text-[10px] font-bold text-slate-400">
-                                                    최종 계산 목표: {midHintData.target}
-                                                </div>
                                             </div>
                                         )}
                                     </>
                                 )}
 
-                                {/* 2. 고급 모드 힌트 */}
                                 {problem.mode === "pro" && (
                                     <div className="space-y-4 py-2 text-center">
                                         <p className="text-slate-500 text-xs font-bold">식의 일부분을 가린 모범 답안입니다!</p>
                                         <div className="bg-yellow-50 border-2 border-yellow-100 p-6 rounded-2xl">
                                             <span className="text-xl md:text-2xl font-black text-amber-700 tracking-wider">{problem.hint} = 0</span>
                                         </div>
-                                        <p className="text-[10px] text-slate-400 leading-relaxed font-bold">빈칸 □ 자리에 들어갈 숫자가 무엇인지 번호판과 연계해 생각해보세요!</p>
                                     </div>
                                 )}
 
                                 <button 
                                     onClick={() => setShowHintModal(false)}
-                                    className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl text-sm transition-colors"
+                                    className="w-full mt-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors"
                                 >
                                     닫기
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- 🤖 Google Gemini AI 수학 튜터 힌트 팝업 모달 --- */}
+                    {showAiModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm scale-in">
+                            <div className="bg-white rounded-[32px] p-6 max-w-md w-full border-4 border-indigo-200 shadow-2xl relative text-center">
+                                <h3 className="text-xl font-black text-indigo-900 flex items-center gap-2 justify-center mb-4">
+                                    <span>🤖 Gemini AI 실시간 혼합계산 피드백</span>
+                                </h3>
+                                
+                                {aiLoading ? (
+                                    <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                                        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                        <p className="text-sm font-bold text-indigo-600 animate-pulse">Gemini AI 수학 멘토가 학생의 수식을 분석하는 중...</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-left text-sm text-slate-700 leading-relaxed max-h-[250px] overflow-y-auto font-medium">
+                                            {aiHintText}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-bold">본 피드백은 구글 Gemini 2.5 Flash가 실시간으로 분석한 수학적 가이드입니다.</p>
+                                    </div>
+                                )}
+
+                                <button 
+                                    onClick={() => setShowAiModal(false)}
+                                    className="w-full mt-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-sm btn-3d"
+                                >
+                                    도움받고 계산해보기!
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- 🏅 명예의 전당 저장 모달 --- */}
+                    {showSaveScoreModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm scale-in">
+                            <div className="bg-white rounded-[32px] p-6 max-w-sm w-full border-4 border-sky-200 shadow-2xl relative text-center">
+                                <span className="text-4xl">🏆</span>
+                                <h3 className="text-2xl font-black text-sky-950 mt-3">명예의 전당 등록</h3>
+                                <p className="text-slate-500 text-xs mt-1 font-bold">도전자님의 성적: <span className="text-sky-600 text-lg font-black">{score}점</span></p>
+                                <p className="text-slate-400 text-[11px] mt-2 font-bold">이름을 적어 전교 실시간 명예의 전당 랭킹에 남겨보세요!</p>
+                                
+                                <input 
+                                    type="text" 
+                                    maxLength="12"
+                                    placeholder="별명 입력 (예: 홍길동)"
+                                    className="w-full mt-5 p-4 rounded-xl bg-slate-100 border border-slate-200 focus:border-sky-400 font-bold text-center text-lg outline-none"
+                                    value={saveScoreName}
+                                    onChange={e => setSaveScoreName(e.target.value)}
+                                />
+
+                                <div className="grid grid-cols-2 gap-3 mt-6">
+                                    <button 
+                                        onClick={() => { setShowSaveScoreModal(false); setView("main"); }}
+                                        className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm"
+                                    >
+                                        그냥 나가기
+                                    </button>
+                                    <button 
+                                        onClick={handleSaveLeaderboardScore}
+                                        disabled={!saveScoreName.trim()}
+                                        className="py-3 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-xl text-sm btn-3d disabled:opacity-50"
+                                    >
+                                        랭킹 등록!
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
